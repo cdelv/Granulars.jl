@@ -1,10 +1,11 @@
 """
-Main force calculation ruttine. It calls oall the different force interactions. 
+Main force calculation routine. It calls all the different force interactions. 
 - particles: StructArray of particles.
-- conf: Simulation configuration, its a Conf struct. 
-- neighborlist: Neighbor list for particle to particle interaction. 
+- neighborlist: Neighbor list for particle-to-particle interaction force calculations.
+- conf: Simulation configuration, it's a Conf struct, implemented in Configuration.jl. 
 """
 function Calculate_Forces(particles::StructVector{Particle{D}}, neighborlist::Vector{Tuple{Int64, Int64, Float64}}, conf::Config{D}) where {D}
+    
     # Reset Forces and Add Gravity. The map is much faster than the foor loop and avoids allocations. 
     map(x -> x.a = conf.g, LazyRows(particles)) 
 
@@ -13,14 +14,16 @@ function Calculate_Forces(particles::StructVector{Particle{D}}, neighborlist::Ve
 
     # Calculate Forces Between Particles using the neighborlist. 
     map(x -> Force_With_Pairs(particles, conf, x), neighborlist)
+
+    return nothing
 end
 
 """
-Calculate the force between pairs of particles using the neighborlist. 
-TO DO: IMPLEMENT FRICTION AND DAMPING.
+Calculate the force between pairs of particles using the neighbor list. 
+- TO DO: IMPLEMENT FRICTION AND DAMPING.
 - particles: StructArray of particles.
-- conf: Simulation configuration, its a Conf struct. 
-- i: an element of the neighborlist. 
+- conf: Simulation configuration, it's a Conf struct, implemented in Configuration.jl.  
+- i: an element of the neighbor list. 
 """
 function Force_With_Pairs(particles::StructVector{Particle{D}}, conf::Config{D}, i::Tuple{Int64, Int64, Float64}) where {D}
     
@@ -38,11 +41,11 @@ function Force_With_Pairs(particles::StructVector{Particle{D}}, conf::Config{D},
 end
 
 """
-Uses the distance between a plain and a point to check for contact.
-Then, it aplies a normal Hertz force to the contact.
-TO DO: IMPLEMENT FRICTION AND DAMPING.
+Uses the distance between a plane and a point to check for contact with the walls.
+Then, it produces Hertz's force in the direction of the normal vector.
+- TO DO: IMPLEMENT FRICTION AND DAMPING.
 - particles: StructArray of particles.
-- conf: Simulation configuration, its a Conf struct. 
+- conf: Simulation configuration, its a Conf struct, implemented in Configuration.jl.  
 """
 function Force_With_Walls(particle::LazyRow{Particle{D}}, conf::Config{D})::SVector{D, Float64} where {D}
 
@@ -59,8 +62,8 @@ end
 
 """
 Hertz Force
-- s: interpenetration distance
-- conf: Simulation configuration, its a Conf struct. 
+- s: Interpenetration distance.
+- conf: Simulation configuration, it's a Conf struct, implemented in Configuration.jl.  
 """
 function Hertz_Force(s::Float64, conf::Config{D}) where {D}
 	conf.K*s^1.5

@@ -6,14 +6,14 @@ Abstract type for particles and inheritance. All particles should have:
 - r: Position vector.
 - v: Velocity vector.
 - a: Acceleration vector.
-- m: Mass. In the future it may change for density. 
+- m: Mass. In the future, it may change for density. 
 """
 abstract type AbstractParticle{D} end
 
 """
-Struct to represent particles of dimension D. For example 2D or 3D.
-Its inmutable for performance. Inspired from AtomsBase.jl. It usses the acceleration, that
-way one can avoid dividing by the mass every step.
+Struct to represent particles of dimension D. For example, 2D or 3D.
+It's immutable for performance. Inspired from AtomsBase.jl. It uses acceleration, that
+way, one can avoid dividing by the mass every step.
 - r is the position of the center of mass of the particle.
 - v is the velocity of the center of mass of the particle.
 - a is the acceleration of the center of mass of the particle.
@@ -32,8 +32,8 @@ end
  CONSTRUCTORS
 =#
 """
-These constructors are just for convinience. This way one doesn't need to specify 
-every parameter to create a particle. However they aren't type stable. 
+These constructors are just for convenience. This way, one doesn't need to specify 
+every parameter to create a particle. However, they aren't type-stable. 
 
 Example -> Particle([0,0,0],[0,0,0],1,rad=1)
 """
@@ -73,14 +73,16 @@ function Particle(;r::Vector{<:Real}=[0.0,0.0,0.0], m::Real=1.0, rad::Real=1.0):
     Particle(SVector{n,Float64}(r),SVector{n,Float64}(zeros(n)),SVector{n,Float64}(zeros(n)),Float64(m),Float64(rad))
 end
 
+#=
+ METHODS
+=#
 """
 Get the dimension of a particle P.
 """
 Get_Dim(P::AbstractParticle{D}) where {D} = D
 
-
 """
-For Newton's equations of motion integration we use PEFRL, however, most methods like
+For Newton's equations of motion integration, we use PEFRL. Most methods like
 Leapfrog, Verlet, Forest-Ruth, etc. work similarly. These methods allow 
 changing the integration algorithm quickly.
 - r: Position vector.
@@ -92,6 +94,12 @@ function Move_r(r::SVector{D, Float64}, v::SVector{D, Float64}, dt::Float64, cte
     return r + v*dt*cte
 end
 
+"""
+- v: Velocity vector.
+- a: Acceleration vector.
+- dt: Time step
+- cte: Integration algorithm constant. 
+"""
 function Move_v(v::SVector{D, Float64}, a::SVector{D, Float64}, dt::Float64, cte=1.0::Float64)::SVector{D, Float64} where {D}
     return v + a*dt*cte
 end

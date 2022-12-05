@@ -1,4 +1,4 @@
-include("src/MultiSpheres.jl")
+include("../src/Granulars.jl")
 function main()
     t = 30
     dt = 0.01

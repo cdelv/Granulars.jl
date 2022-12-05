@@ -10,12 +10,14 @@ struct Wall{D}
 end
 
 """
-Constructor for Wall. It normalizes the normal vector for convenience. 
+Constructor for Wall. For convenience, it normalizes the normal vector.
 """
 function Wall(n::Vector{<:Real}, q::Vector{<:Real})
+	
 	D::Int = length(n)
+	
 	if D!=length(q)
-	    throw(DomainError(q,"n is not the same size as q"))
+	    throw(DomainError(q,"n is not the same size as q."))
 	end
 
 	N = convert(SVector{D,Float64}, n)
@@ -26,13 +28,15 @@ end
 
 
 """
-Struct to configure the simulation. It stores information about the time, force parameters and walls.  
+Struct to configure the simulation. It stores information about the 
+time, force parameters, and walls.  
 - D: Dimension.
-- tf: Maximun simulation time
+- tf: Maximum simulation time
 - dt: Time step.
-- K: Constant for Hertz force calculation. Has to change to be more general. 
+- K: Constant for Hertz force calculation. Has to be change to be more general. 
+(Support for multiple species)
 - g: Simulation gravity vector. 
-- walls: Array of Wall structs that define the simulation bounds.  
+- walls: Array of Wall structs that define the simulation bounds. 
 """
 struct Config{D}
 	tf::Float64
