@@ -14,7 +14,6 @@ include("Writter.jl")
 include("Forces.jl")
 
 
-# 0. Writte Documentation - spell check.
 # 1. Implement Friction and Damping Forces
 # 2. Test Everithing
 # 3. Implement Rotations

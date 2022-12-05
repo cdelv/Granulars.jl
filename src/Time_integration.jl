@@ -22,7 +22,7 @@ function Propagate(data::Vector{Particle{D}}, conf::Config{D}; vis_steps=2000::I
     system = InPlaceNeighborList(x=particles.r, cutoff=Cutoff, parallel=false) # Explore Parallel Options
     list = neighborlist!(system) # Type Warning
     
-    # Save Initial Condition. Save_step is Deffined in Writte.jl
+    # Save Initial Condition. Save_step is Defined in Writte.jl
     if save
         Save_step(particles,file,Print); Print+=1
     end
@@ -62,25 +62,34 @@ function PEFRL_time_step(particles::StructVector{<:AbstractParticle{D}}, conf::C
     const2::Float64 = (1-2*const4)/2         #(1-2λ)/2
     const5::Float64 = 1-2*(const3+const1);   #1-2*(ζ+χ)
 
-    # Update Position. The map is faster than a For Loop for big systems. 
-    # Also, it makes fewer allocations. Move_r is defined in Particle.jl 
+    # Update Position. Move_r is defined in Particle.jl. This for lopp does 0 allocations.
     # and returns a SVector{D, Float64}.
-    map(x -> x.r = Move_r(x.r,x.v,conf.dt,const1), LazyRows(particles))
+    @inbounds for i in eachindex(particles)
+        @inbounds particles.r[i] = Move_r(particles.r[i],particles.v[i],conf.dt,const1)
+    end
     # Calculate_Forces is defined in Forces.jl
     Calculate_Forces(particles,neighborlist,conf)
     # Update velocity. Move_v is defined in Particle.jl. 
     # Also returns a SVector{D, Float64}.
-    map(x -> x.v = Move_v(x.v,x.a,conf.dt,const2), LazyRows(particles))
-    map(x -> x.r = Move_r(x.r,x.v,conf.dt,const3), LazyRows(particles))
+    @inbounds for i in eachindex(particles)
+        @inbounds particles.v[i] = Move_v(particles.v[i],particles.a[i],conf.dt,const2)
+        @inbounds particles.r[i] = Move_r(particles.r[i],particles.v[i],conf.dt,const3)
+    end
     Calculate_Forces(particles,neighborlist,conf)
-    map(x -> x.v = Move_v(x.v,x.a,conf.dt,const4), LazyRows(particles))
-    map(x -> x.r = Move_r(x.r,x.v,conf.dt,const5), LazyRows(particles))
+    @inbounds for i in eachindex(particles)
+        @inbounds particles.v[i] = Move_v(particles.v[i],particles.a[i],conf.dt,const4)
+        @inbounds particles.r[i] = Move_r(particles.r[i],particles.v[i],conf.dt,const5)
+    end
     Calculate_Forces(particles,neighborlist,conf)
-    map(x -> x.v = Move_v(x.v,x.a,conf.dt,const4), LazyRows(particles))
-    map(x -> x.r = Move_r(x.r,x.v,conf.dt,const3), LazyRows(particles))
+    @inbounds for i in eachindex(particles)
+        @inbounds particles.v[i] = Move_v(particles.v[i],particles.a[i],conf.dt,const4)
+        @inbounds particles.r[i] = Move_r(particles.r[i],particles.v[i],conf.dt,const3)
+    end
 	Calculate_Forces(particles,neighborlist,conf)
-    map(x -> x.v = Move_v(x.v,x.a,conf.dt,const2), LazyRows(particles))
-    map(x -> x.r = Move_r(x.r,x.v,conf.dt,const1), LazyRows(particles))
+    @inbounds for i in eachindex(particles)
+        @inbounds particles.v[i] = Move_v(particles.v[i],particles.a[i],conf.dt,const2)
+        @inbounds particles.r[i] = Move_r(particles.r[i],particles.v[i],conf.dt,const1)
+    end
 
     return nothing
 end
