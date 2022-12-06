@@ -15,8 +15,9 @@ include("Forces.jl")
 
 
 # 1. Implement Friction and Damping Forces
-# 2. Test Everithing
+# 2. Test Everithing - Energy and other metrics (check no particles left the box)
 # 3. Implement Rotations
 # 4. Implement BeamForces
 # 5. Implement MultiSpheres
+# 6. Restart simulation and start from file
 ;

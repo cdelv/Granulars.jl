@@ -11,37 +11,40 @@ function Calculate_Forces(particles::StructVector{Particle{D}}, neighborlist::Ve
         @inbounds particles.a[i] = conf.g
 
         # Calculate and Add Forces With Walls
-        @inbounds particles.a[i] = Force_With_Walls(particles[i],conf)
+        @inbounds particles.a[i] += Force_With_Walls(particles[i],conf)
     end
 
-
-    # Calculate Forces Between Particles using the neighborlist. Check this, what about allocs?
-    # LazyRow or not?
-    map(x -> Force_With_Pairs(particles, conf, x), neighborlist)
+    # Calculate Forces Between Particles using the neighborlist.
+    Force_With_Pairs(particles, conf, neighborlist)
 
     return nothing
 end
 
 """
 Calculate the force between pairs of particles using the neighbor list. 
-- TO DO: IMPLEMENT FRICTION AND DAMPING.
+- TO DO: IMPLEMENT FRICTION.
 - particles: StructArray of particles.
 - conf: Simulation configuration, it's a Conf struct, implemented in Configuration.jl.  
 - i: an element of the neighbor list. 
 """
-function Force_With_Pairs(particles::StructVector{Particle{D}}, conf::Config{D}, pair::Tuple{Int64, Int64, Float64}) where {D}
-    i,j,d = pair
-    s = particles.rad[i] + particles.rad[j] - d
+function Force_With_Pairs(particles::StructVector{Particle{D}}, conf::Config{D}, list::Vector{Tuple{Int64, Int64, Float64}}) where {D}
     
-    # Check for contact. Remember that neighborlist hass a bigger cuttof. 
-    if s > 0
-    	# Force to add. 
-    	F = Hertz_Force(s,conf)*normalize(particles.r[i]-particles.r[j])
-        #F += Damping_Force(s,particles[i],particles[j],conf)
-        #Newton 2 law. 
-        particles.a[i] += F/particles.m[i]
-        particles.a[j] -= F/particles.m[j]
+    for pair in list
+        @inbounds i,j,d = pair
+        @inbounds s = particles.rad[i] + particles.rad[j] - d
+
+        # Check for contact. Remember that neighborlist hass a bigger cuttof. 
+        if s > 0
+            # Force to add.
+            @inbounds F = Hertz_Force(s,conf)*normalize(particles.r[i]-particles.r[j])
+            @inbounds F += Damping_Force(s,particles[i],particles[j],conf)
+
+            #Newton 2 law. 
+            @inbounds particles.a[i] += F/particles.m[i]
+            @inbounds particles.a[j] -= F/particles.m[j]
+        end
     end
+
     return nothing
 end
 
@@ -75,6 +78,12 @@ function Hertz_Force(s::Float64, conf::Config{D})::Float64 where {D}
 	conf.K*s^1.5
 end
 
+"""
+Damping Force in the collision of 2 particles. 
+- s: Interpenetration distance.
+- p1 and p2: particles interacting.
+- conf: Simulation configuration, its a Conf struct, implemented in Configuration.jl. 
+"""
 function Damping_Force(s::Float64, p1::Particle{D}, p2::Particle{D}, conf::Config{D})::SVector{D, Float64} where {D}
     
     #Reduced Mass
@@ -83,9 +92,15 @@ function Damping_Force(s::Float64, p1::Particle{D}, p2::Particle{D}, conf::Confi
     #Relative Velocity
     V12 = p1.v-p2.v # carefull with angular velocity !
 
-    -0.1*sqrt(s)*m12*V12 # add gamma to conf (0.1)
+    -conf.gamma*sqrt(s)*m12*V12
 end
 
+"""
+Damping Force in the collision of a particles and a wall. 
+- s: Interpenetration distance.
+- p1 : particles interacting with the wall.
+- conf: Simulation configuration, its a Conf struct, implemented in Configuration.jl. 
+"""
 function Damping_Force(s::Float64, p1::Particle{D}, conf::Config{D})::SVector{D, Float64} where {D}
-    -0.1*sqrt(s)*p1.v # carefull with angular velocity !
+    -conf.gamma*sqrt(s)*p1.v # carefull with angular velocity !
 end

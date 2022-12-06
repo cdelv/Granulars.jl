@@ -42,6 +42,7 @@ struct Config{D}
 	tf::Float64
 	dt::Float64
 	K::Float64
+	gamma::Float64
     g::SVector{D, Float64}
     walls::Vector{Wall{D}}
 end
@@ -49,16 +50,17 @@ end
 """
 Convenience constructor for Config. It will error if g and Wall have different sizes. 
 """
-function Config(tf::Real, dt::Real, g::T; k=4.0e2::Real, walls=[]::Vector{Wall}) where {T}
+function Config(tf::Real, dt::Real, g::T; k=4.0e2::Real, gamma=1.0::Real, walls=[]::Vector{Wall}) where {T}
 
 	D::Int = length(g)
 
 	TF = convert(Float64,tf)
 	DT = convert(Float64,dt)
 	K = convert(Float64,k)
+	GAMMA = convert(Float64,gamma)
 	G = convert(SVector{D,Float64}, g)
 	W = convert(Vector{Wall{D}}, unique(walls))
 
 
-	Config(TF,DT,K,G,W)
+	Config(TF,DT,K,GAMMA,G,W)
 end
