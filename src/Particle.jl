@@ -1,5 +1,4 @@
 # @forward Citizen.person name --> Lazy.@forward  for inheritance
-# @inline --> explore posibility
 """
 Abstract type for particles and inheritance. All particles should have: 
 - D: Dimension.
@@ -29,7 +28,7 @@ struct Particle{D} <: AbstractParticle{D}
 end
 
 #=
- CONSTRUCTORS
+ CONSTRUCTORS -> MAY BE IMPROVE?
 =#
 """
 These constructors are just for convenience. This way, one doesn't need to specify 
@@ -95,6 +94,7 @@ function Move_r(r::SVector{D, Float64}, v::SVector{D, Float64}, dt::Float64, cte
 end
 
 """
+Update velocity according to MD algortihm. 
 - v: Velocity vector.
 - a: Acceleration vector.
 - dt: Time step

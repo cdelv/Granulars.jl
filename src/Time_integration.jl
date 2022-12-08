@@ -21,6 +21,12 @@ function Propagate(data::Vector{Particle{D}}, conf::Config{D}; vis_steps=2000::I
     # Create Neighbor and Cell List
     system = InPlaceNeighborList(x=particles.r, cutoff=Cutoff, parallel=false) # Explore Parallel Options
     list = neighborlist!(system) # Type Warning
+
+    # Create Simetric Sparse Matrix for kundall spring forces calculation.
+    # Sparce because most of the elements are zero and for large number of
+    # particles we run out of memory.
+    kundall_particles = ExtendableSparseMatrix(zeros(length(data) , length(data)))
+    kundall_walls = ExtendableSparseMatrix(zeros(length(data) , length(conf.walls)))
     
     # Save Initial Condition. Save_step is Defined in Writte.jl
     if save
@@ -32,11 +38,15 @@ function Propagate(data::Vector{Particle{D}}, conf::Config{D}; vis_steps=2000::I
         t+=conf.dt
         
         # Time Step
-        PEFRL_time_step(particles,conf,list)
+        PEFRL_time_step(particles,conf,list,kundall_particles,kundall_walls)
         
         # Update Cell List (Dont do it all steps)
         update!(system, particles.r)
         list = neighborlist!(system)
+
+        # Remove 0 entries from the sparce matrix.
+        dropzeros!(kundall_particles)
+        dropzeros!(kundall_walls)
         
         # Save Data Every vis_steps
         if i%vis_steps==0 && save 
@@ -52,8 +62,14 @@ Performs one-time steps according to the PEFRL algorithm.
 - particles: StructArray of particles.
 - conf: Simulation configuration, it's a Conf struct, implemented in Configuration.jl. 
 - neighbor list: Neighbor list for a particle-to-particle interaction force calculation. 
+- kundall_particles: Sparse symmetric matrix that stores the kundall spring distance for particle-particle interactions.
+- kundall_walls: Sparse symmetric matrix that stores the kundall spring for particle-wall interactions.
 """
-function PEFRL_time_step(particles::StructVector{<:AbstractParticle{D}}, conf::Config{D}, neighborlist::Vector{Tuple{Int64, Int64, Float64}}) where {D}
+function PEFRL_time_step(particles::StructVector{<:AbstractParticle{D}}, 
+    conf::Config{D}, 
+    neighborlist::Vector{Tuple{Int64, Int64, Float64}},
+    kundall_particles::ExtendableSparseMatrix{Float64, Int64},
+    kundall_walls::ExtendableSparseMatrix{Float64, Int64}) where {D}
     
     #PEFRL constants
     const1::Float64 = 0.1644986515575760     #ζ
@@ -62,31 +78,31 @@ function PEFRL_time_step(particles::StructVector{<:AbstractParticle{D}}, conf::C
     const2::Float64 = (1-2*const4)/2         #(1-2λ)/2
     const5::Float64 = 1-2*(const3+const1);   #1-2*(ζ+χ)
 
-    # Update Position. Move_r is defined in Particle.jl. This for lopp does 0 allocations.
+    # Update Position. Move_r is defined in Particle.jl.
     # and returns a SVector{D, Float64}.
-    @inbounds for i in eachindex(particles)
+    for i in eachindex(particles)
         @inbounds particles.r[i] = Move_r(particles.r[i],particles.v[i],conf.dt,const1)
     end
     # Calculate_Forces is defined in Forces.jl
-    Calculate_Forces(particles,neighborlist,conf)
+    Calculate_Forces(particles,neighborlist,conf,kundall_particles,kundall_walls)
     # Update velocity. Move_v is defined in Particle.jl. 
     # Also returns a SVector{D, Float64}.
-    @inbounds for i in eachindex(particles)
+    for i in eachindex(particles)
         @inbounds particles.v[i] = Move_v(particles.v[i],particles.a[i],conf.dt,const2)
         @inbounds particles.r[i] = Move_r(particles.r[i],particles.v[i],conf.dt,const3)
     end
-    Calculate_Forces(particles,neighborlist,conf)
-    @inbounds for i in eachindex(particles)
+    Calculate_Forces(particles,neighborlist,conf,kundall_particles,kundall_walls)
+    for i in eachindex(particles)
         @inbounds particles.v[i] = Move_v(particles.v[i],particles.a[i],conf.dt,const4)
         @inbounds particles.r[i] = Move_r(particles.r[i],particles.v[i],conf.dt,const5)
     end
-    Calculate_Forces(particles,neighborlist,conf)
-    @inbounds for i in eachindex(particles)
+    Calculate_Forces(particles,neighborlist,conf,kundall_particles,kundall_walls)
+    for i in eachindex(particles)
         @inbounds particles.v[i] = Move_v(particles.v[i],particles.a[i],conf.dt,const4)
         @inbounds particles.r[i] = Move_r(particles.r[i],particles.v[i],conf.dt,const3)
     end
-	Calculate_Forces(particles,neighborlist,conf)
-    @inbounds for i in eachindex(particles)
+    Calculate_Forces(particles,neighborlist,conf,kundall_particles,kundall_walls)
+    for i in eachindex(particles)
         @inbounds particles.v[i] = Move_v(particles.v[i],particles.a[i],conf.dt,const2)
         @inbounds particles.r[i] = Move_r(particles.r[i],particles.v[i],conf.dt,const1)
     end

@@ -6,6 +6,11 @@ using StructArrays
 using CellListMap
 using CSV
 using LinearAlgebra
+using Accessors
+using SparseArrays: dropzeros!
+#using SuiteSparseGraphBLAS # explore this library after the updates that remove elements
+using ExtendableSparse: ExtendableSparseMatrix
+
 
 include("Particle.jl")
 include("Configuration.jl")
@@ -14,8 +19,11 @@ include("Writter.jl")
 include("Forces.jl")
 
 
-# 1. Implement Friction and Damping Forces
-# 2. Test Everithing - Energy and other metrics (check no particles left the box)
+# Documentation
+# Check simulation state
+# Function to initialize particles
+# 
+
 # 3. Implement Rotations
 # 4. Implement BeamForces
 # 5. Implement MultiSpheres
