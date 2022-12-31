@@ -43,7 +43,7 @@ struct Particle <: AbstractParticle
 end
 
 #=
- CONSTRUCTORS -> MAY BE IMPROVE?
+ CONSTRUCTORS
 =#
 """
 These constructors are just for convenience. This way, one doesn't need to specify 
@@ -79,6 +79,8 @@ function Particle(r::Vector{<:Real}, v::Vector{<:Real}; m::Real=1.0, rad::Real=1
 end
 
 """
+This one has alocations and its slow
+
 Example -> Particle(r=[0,0,0],m=1)
 Example -> Particle().
 """
@@ -138,8 +140,7 @@ function Move_w(w::SVector{3, Float64}, τ::SVector{3, Float64}, II::SVector{3, 
     return w + (τ*dt*cte + SVector{3,Float64}([
         (II[2]-II[3])*w[2]*w[3],
         (II[3]-II[1])*w[3]*w[1],
-        (II[1]-II[2])*w[1]*w[2]
-        ]))./II
+        (II[1]-II[2])*w[1]*w[2]]))./II
 end
 
 """
@@ -150,10 +151,10 @@ Update orientation according to MD algortihm.
 - cte: Integration algorithm constant. 
 """
 function Move_q(q::Quaternion{Float64}, w::SVector{3, Float64}, dt::Float64)::Quaternion{Float64}
-    Q_q_dt = dquat(q, w)*dt #angle_to_quat(0.5, 0, 0, :XYZ) and quat_to_angle(q::Quaternion, :ZYX)
-    a1 = 1 - dt^2*norm(w)^2/16
-    a2 = 1 + dt^2*norm(w)^2/16
-
+    #angle_to_quat(0.5, 0, 0, :XYZ) and quat_to_angle(q::Quaternion, :ZYX)
+    Q_q_dt::Quaternion{Float64} = dquat(q, w)*dt
+    a1::Float64 = 1.0 - dt*dt*dot(w,w)/16
+    a2::Float64 = 1.0 + dt*dt*dot(w,w)/16
     return (a1*q + Q_q_dt)/a2
 end
 

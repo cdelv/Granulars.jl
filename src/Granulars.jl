@@ -24,7 +24,10 @@ Tests Ideas:
     - Maxwell Boltzman (ideal gas 2D and 3D)
     - No Particles outside the box
     - Trompo for rotations
+    - rad and I cant be 0
 """
+
+# TEST EVERITHING!
 
 # Delete old data files
 # Check if directory exists
