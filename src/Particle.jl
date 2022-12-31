@@ -1,29 +1,44 @@
 # @forward Citizen.person name --> Lazy.@forward  for inheritance
 """
 Abstract type for particles and inheritance. All particles should have: 
-- D: Dimension.
-- r: Position vector.
-- v: Velocity vector.
-- a: Acceleration vector.
-- m: Mass. In the future, it may change for density. 
+- r: position of the center of mass of the particle.
+- v: velocity of the center of mass of the particle.
+- a: acceleration of the center of mass of the particle.
+- q: quaternion that represents the orientation of the particle 
+- w: angular velodity of the particle 
+- τ: torque over the particle
+- m: is the mass of the particle. Change for density?
+- I: inertia of the particle in the principal axes reference frame. 
+- rad: radius of the particle.
 """
-abstract type AbstractParticle{D} end
+abstract type AbstractParticle end
 
 """
-Struct to represent particles of dimension D. For example, 2D or 3D.
-It's immutable for performance. Inspired from AtomsBase.jl. It uses acceleration, that
-way, one can avoid dividing by the mass every step.
-- r is the position of the center of mass of the particle.
-- v is the velocity of the center of mass of the particle.
-- a is the acceleration of the center of mass of the particle.
-- m is the mass of the particle.
-- rad is the radius of the particle.
+Struct to represent particles. It's immutable for performance. Inspired from AtomsBase.jl. 
+I use acceleration, that way, one can avoid dividing by the mass every step. Due to the rotation algorithm,
+I use torque as the inertia is used in a different way. 
+- r: position of the center of mass of the particle.
+- v: velocity of the center of mass of the particle.
+- a: acceleration of the center of mass of the particle.
+- q: quaternion that represents the orientation of the particle 
+- w: angular velodity of the particle 
+- τ: torque over the particle
+- m: is the mass of the particle. Change for density?
+- I: inertia of the particle in the principal axes reference frame. 
+- rad: radius of the particle.
 """
-struct Particle{D} <: AbstractParticle{D}
-    r::SVector{D, Float64}
-    v::SVector{D, Float64}
-    a::SVector{D, Float64}
+struct Particle <: AbstractParticle
+    r::SVector{3, Float64}
+    v::SVector{3, Float64}
+    a::SVector{3, Float64}
+
+    q::Quaternion{Float64}
+    w::SVector{3, Float64}
+    τ::SVector{3, Float64}
+
     m::Float64
+    I::SVector{3, Float64}
+
     rad::Float64
 end
 
@@ -36,60 +51,65 @@ every parameter to create a particle. However, they aren't type-stable.
 
 Example -> Particle([0,0,0],[0,0,0],1,rad=1)
 """
-function Particle(r::Vector{<:Real}, v::Vector{<:Real}, m::Real; rad::Real=1.0)::Particle
-    
-    n = length(r)
-
-    if n!=length(v)
-        throw(DomainError(v,"v is not the same size as r"))
-    end
-
-    Particle(SVector{n,Float64}(r),SVector{n,Float64}(v),zeros(SVector{n}),Float64(m),Float64(rad))
+function Particle(r::Vector{<:Real}, v::Vector{<:Real}, w::Vector{<:Real}, m::Real; rad::Real=1.0)::Particle
+    Particle(SVector{3,Float64}(r),
+        SVector{3,Float64}(v),
+        zeros(SVector{3}),
+        Quaternion(1.0I),
+        SVector{3,Float64}(w),
+        zeros(SVector{3}),
+        Float64(m),
+        zeros(SVector{3}),
+        Float64(rad))
 end
 
 """
 Example -> Particle([0,0,0],[0,0,0],m=1,rad=1)
 """
 function Particle(r::Vector{<:Real}, v::Vector{<:Real}; m::Real=1.0, rad::Real=1.0)::Particle
-    
-    n = length(r)
-    
-    if n!=length(v)
-        throw(DomainError(v,"v is not the same size as r"))
-    end
-    
-    Particle(SVector{n,Float64}(r),SVector{n,Float64}(v),zeros(SVector{n}),Float64(m),Float64(rad))
+    Particle(SVector{3,Float64}(r),
+        SVector{3,Float64}(v),
+        zeros(SVector{3}),
+        Quaternion(1.0I),
+        zeros(SVector{3}),
+        zeros(SVector{3}),
+        Float64(m),
+        zeros(SVector{3}),
+        Float64(rad))
 end
 
 """
 Example -> Particle(r=[0,0,0],m=1)
 Example -> Particle().
 """
-function Particle(;r::Vector{<:Real}=[0.0,0.0,0.0], m::Real=1.0, rad::Real=1.0)::Particle
-
-    n = length(r)
-
-    Particle(SVector{n,Float64}(r),SVector{n,Float64}(zeros(n)),SVector{n,Float64}(zeros(n)),Float64(m),Float64(rad))
+function Particle(;r::Vector{<:Real}=[0.0,0.0,0.0], v::Vector{<:Real}=[0.0,0.0,0.0], w::Vector{<:Real}=[0.0,0.0,0.0], m::Real=1.0, I::Vector{<:Real}=[1.0,1.0,1.0], rad::Real=1.0)::Particle
+    Particle(SVector{3,Float64}(r),
+        SVector{3,Float64}(v),
+        zeros(SVector{3}),
+        Quaternion(1.0I),
+        SVector{3,Float64}(w),
+        zeros(SVector{3}),
+        Float64(m),
+        SVector{3,Float64}(I),
+        Float64(rad))
 end
 
 #=
- METHODS
-=#
+METHODS --> SET METHODS MISSING
+=## Type Warning
 """
-Get the dimension of a particle P.
-"""
-Get_Dim(P::AbstractParticle{D}) where {D} = D
+For Newton's equations of motion integration, I use PEFRL:
 
-"""
-For Newton's equations of motion integration, we use PEFRL. Most methods like
-Leapfrog, Verlet, Forest-Ruth, etc. work similarly. These methods allow 
+- Optimized Forest–Ruth- and Suzuki-like algorithms for integration of motion in many-body systems, I.P. Omelyan, I.M. Mryglodab and R. Folk, 2002
+
+Most methods like Leapfrog, Verlet, Forest-Ruth, etc. work similarly. These methods allow 
 changing the integration algorithm quickly.
 - r: Position vector.
 - v: Velocity vector.
-- dt: Time step
+- dt: Time step.
 - cte: Integration algorithm constant. 
 """
-function Move_r(r::SVector{D, Float64}, v::SVector{D, Float64}, dt::Float64, cte=1.0::Float64)::SVector{D, Float64} where {D}
+function Move_r(r::SVector{3, Float64}, v::SVector{3, Float64}, dt::Float64, cte=1.0::Float64)::SVector{3, Float64}
     return r + v*dt*cte
 end
 
@@ -100,6 +120,36 @@ Update velocity according to MD algortihm.
 - dt: Time step
 - cte: Integration algorithm constant. 
 """
-function Move_v(v::SVector{D, Float64}, a::SVector{D, Float64}, dt::Float64, cte=1.0::Float64)::SVector{D, Float64} where {D}
+function Move_v(v::SVector{3, Float64}, a::SVector{3, Float64}, dt::Float64, cte=1.0::Float64)::SVector{3, Float64}
     return v + a*dt*cte
+end
+
+"""
+Update angular velocity according to MD algortihm. I use: 
+
+- Algorithm for numerical integration of the rigid-body equations of motion, Igor P. Omelyan, 1998
+
+- w: Angular velocity vector.
+- τ: Torque vector.
+- dt: Time step
+- cte: Integration algorithm constant. 
+"""
+function Move_w(w::SVector{3, Float64}, τ::SVector{3, Float64}, dt::Float64, cte=1.0::Float64)::SVector{3, Float64}
+    I = 2/5
+    return w + τ*dt*cte/I # FIX THIS ADD INNERTIA 
+end
+
+"""
+Update orientation according to MD algortihm. 
+- q: quaternion that represents the orientation.
+- w: Angular velocity vector.
+- dt: Time step.
+- cte: Integration algorithm constant. 
+"""
+function Move_q(q::Quaternion{Float64}, w::SVector{3, Float64}, dt::Float64)::Quaternion{Float64}
+    Q_q_dt = dquat(q, w)*dt #angle_to_quat(0.5, 0, 0, :XYZ) and quat_to_angle(q::Quaternion, :ZYX)
+    a1 = 1 - dt^2*norm(w)^2/16
+    a2 = 1 + dt^2*norm(w)^2/16
+
+    return (a1*q + Q_q_dt)/a2
 end
