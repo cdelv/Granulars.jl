@@ -28,9 +28,8 @@ Tests Ideas:
 
 # Delete old data files
 # Check if directory exists
-
-# TEST A LOT 2D SIMULATIONS!
-
+# 3. Compute Inertia tensor and principal axys
+# 
 # 4. Implement BeamForces
 # 5. Implement MultiSpheres and sphere fitting
 # - https://jekel.me/2015/Least-Squares-Sphere-Fit/

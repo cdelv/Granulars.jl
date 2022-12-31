@@ -93,7 +93,7 @@ function time_step(particles::StructVector{<:AbstractParticle},
     # Update Position. Move_r, Move_q, Move_w are defined in Particle.jl.
     for i in eachindex(particles)
         @inbounds particles.r[i] = Move_r(particles.r[i],particles.v[i],conf.dt,const1)
-        @inbounds particles.w[i] = Move_w(particles.w[i],particles.τ[i],conf.dt,0.5)
+        @inbounds particles.w[i] = Move_w(particles.w[i],particles.τ[i],particles.I[i],conf.dt,0.5)
         @inbounds particles.q[i] = Move_q(particles.q[i],particles.w[i],conf.dt)
     end
     # Calculate_Forces is defined in Forces.jl
@@ -117,7 +117,7 @@ function time_step(particles::StructVector{<:AbstractParticle},
     for i in eachindex(particles)
         @inbounds particles.v[i] = Move_v(particles.v[i],particles.a[i],conf.dt,const2)
         @inbounds particles.r[i] = Move_r(particles.r[i],particles.v[i],conf.dt,const1)
-        @inbounds particles.w[i] = Move_w(particles.w[i],particles.τ[i],conf.dt,0.5)
+        @inbounds particles.w[i] = Move_w(particles.w[i],particles.τ[i],particles.I[i],conf.dt,0.5)
     end
 
     return nothing

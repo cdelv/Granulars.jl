@@ -95,8 +95,8 @@ function Particle(;r::Vector{<:Real}=[0.0,0.0,0.0], v::Vector{<:Real}=[0.0,0.0,0
 end
 
 #=
-METHODS --> SET METHODS MISSING
-=## Type Warning
+METHODS FOR MD
+=# 
 """
 For Newton's equations of motion integration, I use PEFRL:
 
@@ -134,9 +134,12 @@ Update angular velocity according to MD algortihm. I use:
 - dt: Time step
 - cte: Integration algorithm constant. 
 """
-function Move_w(w::SVector{3, Float64}, τ::SVector{3, Float64}, dt::Float64, cte=1.0::Float64)::SVector{3, Float64}
-    I = 2/5
-    return w + τ*dt*cte/I # FIX THIS ADD INNERTIA 
+function Move_w(w::SVector{3, Float64}, τ::SVector{3, Float64}, II::SVector{3, Float64}, dt::Float64, cte=1.0::Float64)::SVector{3, Float64}
+    return w + (τ*dt*cte + SVector{3,Float64}([
+        (II[2]-II[3])*w[2]*w[3],
+        (II[3]-II[1])*w[3]*w[1],
+        (II[1]-II[2])*w[1]*w[2]
+        ]))./II
 end
 
 """
@@ -152,4 +155,35 @@ function Move_q(q::Quaternion{Float64}, w::SVector{3, Float64}, dt::Float64)::Qu
     a2 = 1 + dt^2*norm(w)^2/16
 
     return (a1*q + Q_q_dt)/a2
+end
+
+#=
+SET METHODS
+=#
+function Set_r(p::Particle, r::SVector{3, Float64})::Particle
+    return Particle(r,p.v,p.a,p.q,p.w,p.τ,p.m,p.I,p.rad)
+end
+function Set_v(p::Particle, v::SVector{3, Float64})::Particle
+    return Particle(p.r,v,p.a,p.q,p.w,p.τ,p.m,p.I,p.rad)
+end
+function Set_a(p::Particle, a::SVector{3, Float64})::Particle
+    return Particle(p.r,p.v,a,p.q,p.w,p.τ,p.m,p.I,p.rad)
+end
+function Set_q(p::Particle, q::Quaternion{Float64})::Particle
+    return Particle(p.r,p.v,p.a,q,p.w,p.τ,p.m,p.I,p.rad)
+end
+function Set_w(p::Particle, w::SVector{3, Float64})::Particle
+    return Particle(p.r,p.v,p.a,p.q,w,p.τ,p.m,p.I,p.rad)
+end
+function Set_τ(p::Particle, τ::SVector{3, Float64})::Particle
+    return Particle(p.r,p.v,p.a,p.q,p.w,τ,p.m,p.I,p.rad)
+end
+function Set_m(p::Particle, m::Float64)::Particle
+    return Particle(p.r,p.v,p.a,p.q,p.w,p.τ,m,p.I,p.rad)
+end
+function Set_I(p::Particle, I::SVector{3, Float64})::Particle
+    return Particle(p.r,p.v,p.a,p.q,p.w,p.τ,p.m,I,p.rad)
+end
+function Set_rad(p::Particle, rad::Float64)::Particle
+    return Particle(p.r,p.v,p.a,p.q,p.w,p.τ,p.m,p.I,rad)
 end
