@@ -63,7 +63,7 @@ function main()
     p = Set_I(p,SVector{3,Float64}([0.2, 0.2, 1.0]))
     p = Set_q(p,angle_to_quat(π/7, 0, -π/2,:XYZ))
     data = [p]
-    conf = Config(0.5,0.0001,g=ones(3),walls=walls)
+    conf = Config(0.5,0.0001,walls,g=ones(3))
     Propagate(data, conf; vis_steps=20, file="Paraview/data", save=true)
 end
 
