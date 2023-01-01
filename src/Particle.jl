@@ -59,7 +59,7 @@ function Particle(r::Vector{<:Real}, v::Vector{<:Real}, w::Vector{<:Real}, m::Re
         SVector{3,Float64}(w),
         zeros(SVector{3}),
         Float64(m),
-        zeros(SVector{3}),
+        ones(SVector{3}),
         Float64(rad))
 end
 
@@ -74,7 +74,7 @@ function Particle(r::Vector{<:Real}, v::Vector{<:Real}; m::Real=1.0, rad::Real=1
         zeros(SVector{3}),
         zeros(SVector{3}),
         Float64(m),
-        zeros(SVector{3}),
+        ones(SVector{3}),
         Float64(rad))
 end
 

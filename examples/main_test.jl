@@ -23,9 +23,9 @@ function main(t,N)
     
     aos = [Particle((Lx-2.0)*rand(3)+[1,1,1],4.0*rand(3)) for i = 1:N]
     
-    conf = Config(t,dt,g=g,walls=walls)
+    conf = Config(t,dt,walls,g=g)
     
     Propagate(aos, conf, vis_steps=65, file="Paraview/data", save=true)
 end
 
-@time main(1,20);
+@time main(200,20);

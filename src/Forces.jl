@@ -63,13 +63,10 @@ function Force_With_Pairs(particles::StructVector{Particle},
         # Calculate normal forces.
         Vn::Float64 = dot(Vij,n)
         Fn::Float64 = Hertz_Force(s,conf) + Damping_Force(s,mij,Vn,conf)
-        if Fn < 0
-            Fn = 0
-        end
 
         # Calculate tangencial forces (Kundal friction force)
         Vt::Float64 = dot(Vij,t)
-        @inbounds kundall[i,j] += Vt*conf.dt # Add distance to Kundall spring
+        @inbounds kundall[i,j] += Vt*conf.dt*0.25 # Add distance to Kundall spring
         @inbounds Ft::Float64 = Kundall_friction(kundall[i,j], Fn, conf)
 
         # Total force
@@ -81,7 +78,7 @@ function Force_With_Pairs(particles::StructVector{Particle},
 
         # Add torque
         @inbounds particles.τ[i] += cross(-(particles.rad[i]-s/2)*n, F)
-        @inbounds particles.τ[j] -= cross( (particles.rad[j]-s/2)*n, F)
+        @inbounds particles.τ[j] += cross( (particles.rad[j]-s/2)*n, -F)
     end
 
     return nothing
@@ -129,7 +126,7 @@ function Force_With_Walls(particles::StructVector{Particle}, i::Int64, conf::Con
 
         # Calculate tangencial forces (Kundal friction force)
         Vt::Float64 = dot(Vij,t)
-        kundall[i,j] += Vt*conf.dt # Add distance to Kundall spring
+        kundall[i,j] += Vt*conf.dt*0.25 # Add distance to Kundall spring
         @inbounds Ft::Float64 = Kundall_friction(kundall[i,j], abs(dot(F,conf.walls[j].n)), conf)
         F += Ft*t
         @inbounds T += cross(-(particles.rad[i]-s/2)*conf.walls[j].n, F)
