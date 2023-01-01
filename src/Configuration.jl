@@ -12,9 +12,9 @@ end
 """
 Constructor for Wall. For convenience, it normalizes the normal vector automatically.
 """
-function Wall(n::Vector{<:Real}, q::Vector{<:Real})
+function Wall(n::Vector{<:Real}, q::Vector{<:Real})::Wall
 	N = convert(SVector{3,Float64}, n)
-	N = unitary(N)
+	N = normalize(N) # error if [0,0,0]
 	Q = convert(SVector{3,Float64}, q)
 	Wall(N,Q)
 end
@@ -54,8 +54,10 @@ TO DO: make possible to use no walls.
 - walls: Array of Wall structs that define the simulation bounds. 
 - K_kundall: Kundall spring constant.
 - mu: Friction coefficient.
+
+Does allocations!!!
 """
-function Config(tf::Real, dt::Real; g::Vector{<:Real}=[0,-9.8,0], k=1.0e6::Real, gamma=500::Real, KK=900.0::Real, mu=0.4::Real, walls=[]::Vector{Wall})
+function Config(tf::Real, dt::Real, walls::Vector{Wall}; g::Vector{<:Real}=[0,-9.8,0], k=1.0e5::Real, gamma=500::Real, KK=500.0::Real, mu=1.2::Real)::Config
 	TF = convert(Float64,tf)
 	DT = convert(Float64,dt)
 	K = convert(Float64,k)
@@ -63,6 +65,6 @@ function Config(tf::Real, dt::Real; g::Vector{<:Real}=[0,-9.8,0], k=1.0e6::Real,
 	MU = convert(Float64,mu)
 	GAMMA = convert(Float64,gamma)
 	G = convert(SVector{3,Float64}, g)
-	W = convert(Vector{Wall}, unique(walls))
+	W = convert(Vector{Wall}, unique(walls)) # remove reapeted walls
 	Config(TF,DT,K,GAMMA,G,W,kk,MU)
 end

@@ -1,16 +1,25 @@
-"""
-Prints the information of all particles to a .csv file.
-CSV.write is the fastest writer I could find. 
-- TO DO: PRINT WALLS INFORMATION, CHECK IF THE DIRECTORY EXISTS, AND DELETE OLD DATA. 
+include("../../src/Granulars.jl")
+l = 1.0
+g = 1.0
 
-- particles: StructArray of particles.
-- file: Name of the file group to save all the csvs.
-- i: Integer that defines the number of the frame to print.
-- t: Simulation time. 
-"""
-function Save_step(particles::StructVector{Particle}, file::String, i::Int, t::Float64, rot_seq::Symbol=:XYZ)
+function Calculate_Forces(particles::StructVector{Particle}, 
+    neighborlist::Vector{Tuple{Int64, Int64, Float64}}, 
+    conf::Config,
+    kundall_particles::ExtendableSparseMatrix{Float64, Int64},
+    kundall_walls::ExtendableSparseMatrix{Float64, Int64})
+    q = particles.q[1]
     
-	# Define The Header Depending On The Dimmension Of The Particles 
+    particles.τ[1] = particles.m[1]*g*l*SVector(
+            2.0*(q.q2*q.q3 + q.q0*q.q1),
+            -2.0*(q.q1*q.q3 - q.q0*q.q2), 
+            0.0)
+    
+    return nothing
+end
+
+function Save_step(particles::StructVector{Particle}, file::String, i::Int, t::Float64)
+    
+    # Define The Header Depending On The Dimmension Of The Particles 
     H = ["t","x","y","z","vx","vy","vz","ax","ay","az","a1","a2","a3","wx","wy","wz","αx","αy","αz","m","Ix","Iy","Iz","rad"]
 
     # This syntax is a bit involved. We have a StrucArray.
@@ -29,7 +38,7 @@ function Save_step(particles::StructVector{Particle}, file::String, i::Int, t::F
     II = transpose(reshape(reinterpret(Float64,particles.I),(3,length(particles))))
     rad = transpose(reshape(reinterpret(Float64,particles.rad),(1,length(particles))))
     
-    q = StructArray(quat_to_angle.(particles.q, rot_seq))
+    q = StructArray(quat_to_angle.(particles.q, :XYZ))
     a1 = transpose(reshape(reinterpret(Float64,q.a1),(1,length(particles))))
     a2 = transpose(reshape(reinterpret(Float64,q.a2),(1,length(particles))))
     a3 = transpose(reshape(reinterpret(Float64,q.a3),(1,length(particles))))
@@ -46,3 +55,16 @@ function Save_step(particles::StructVector{Particle}, file::String, i::Int, t::F
     
     nothing
 end
+
+function main()
+    W1 = Wall([1,0,0],[0,0,0])
+    walls = [W1]
+    p = Particle(w=[0, 1.0, 9.0])
+    p = Set_I(p,SVector{3,Float64}([0.2, 0.2, 1.0]))
+    p = Set_q(p,angle_to_quat(π/7, 0, -π/2,:XYZ))
+    data = [p]
+    conf = Config(0.5,0.0001,g=ones(3),walls=walls)
+    Propagate(data, conf; vis_steps=20, file="Paraview/data", save=true)
+end
+
+main()

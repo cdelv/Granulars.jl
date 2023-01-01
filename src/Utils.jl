@@ -10,3 +10,15 @@ function unitary(v::SVector{3, Float64})::SVector{3, Float64}
         return normalize(v)
     end
 end
+
+function Check_Simulation(particles::StructVector{<:AbstractParticle})
+    for i in eachindex(particles)
+        @assert all(>(0.0), particles.I[i])
+        @assert particles.m[i] > 0.0
+        @assert particles.rad[i] > 0.0
+        if !(norm(particles.q[i]) ≈ 1)
+            particles.q[i] = particles.q[i]/norm(particles.q[i])
+            println("Normalizing quaternion of particle ", i)
+        end
+    end
+end

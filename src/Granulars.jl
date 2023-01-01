@@ -20,17 +20,14 @@ include("Utils.jl")
 
 """
 Tests Ideas:
-    - All functions 
-    - Maxwell Boltzman (ideal gas 2D and 3D)
+    - Maxwell Boltzman (ideal gas 3D)
     - No Particles outside the box
-    - Trompo for rotations
-    - rad and I cant be 0
 """
 
-# TEST EVERITHING!
 
 # Delete old data files
 # Check if directory exists
+
 # 3. Compute Inertia tensor and principal axys
 # 
 # 4. Implement BeamForces
@@ -40,7 +37,6 @@ Tests Ideas:
 # - https://github.com/cserteGT3/RANSAC.jl
 
 # 6. Restart simulation and start from file
-
 
 # 8. Calculate quantities like energy.
 # 9. Create Docs page.

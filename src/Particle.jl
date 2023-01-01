@@ -137,10 +137,10 @@ Update angular velocity according to MD algortihm. I use:
 - cte: Integration algorithm constant. 
 """
 function Move_w(w::SVector{3, Float64}, τ::SVector{3, Float64}, II::SVector{3, Float64}, dt::Float64, cte=1.0::Float64)::SVector{3, Float64}
-    return w + (τ*dt*cte + SVector{3,Float64}([
-        (II[2]-II[3])*w[2]*w[3],
-        (II[3]-II[1])*w[3]*w[1],
-        (II[1]-II[2])*w[1]*w[2]]))./II
+    return w + dt*cte*SVector(
+        τ[1] + w[2]*w[3]*(II[2]-II[3]),
+        τ[2] + w[3]*w[1]*(II[3]-II[1]),
+        τ[3] + w[1]*w[2]*(II[1]-II[2]))./II
 end
 
 """
@@ -161,7 +161,7 @@ end
 #=
 SET METHODS
 =#
-function Set_r(p::Particle, r::SVector{3, Float64})::Particle
+function Set_r(p::Particle, r::SVector{3, Float64})::Particle # Convert svector, acept normal vector
     return Particle(r,p.v,p.a,p.q,p.w,p.τ,p.m,p.I,p.rad)
 end
 function Set_v(p::Particle, v::SVector{3, Float64})::Particle
@@ -180,11 +180,14 @@ function Set_τ(p::Particle, τ::SVector{3, Float64})::Particle
     return Particle(p.r,p.v,p.a,p.q,p.w,τ,p.m,p.I,p.rad)
 end
 function Set_m(p::Particle, m::Float64)::Particle
+    @assert m > 0.0
     return Particle(p.r,p.v,p.a,p.q,p.w,p.τ,m,p.I,p.rad)
 end
 function Set_I(p::Particle, I::SVector{3, Float64})::Particle
+    @assert all(>(0.0), I)
     return Particle(p.r,p.v,p.a,p.q,p.w,p.τ,p.m,I,p.rad)
 end
 function Set_rad(p::Particle, rad::Float64)::Particle
+    @assert rad > 0.0
     return Particle(p.r,p.v,p.a,p.q,p.w,p.τ,p.m,p.I,rad)
 end

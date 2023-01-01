@@ -6,7 +6,7 @@ Main force calculation routine. It calls all the different force interactions.
 - kundall_particles: Sparse symmetric matrix that stores the kundall spring distance for particle-particle interactions.
 - kundall_walls: Sparse symmetric matrix that stores the kundall spring for particle-wall interactions.
 """
-@inline function Calculate_Forces(particles::StructVector{Particle}, 
+function Calculate_Forces(particles::StructVector{Particle}, 
     neighborlist::Vector{Tuple{Int64, Int64, Float64}}, 
     conf::Config,
     kundall_particles::ExtendableSparseMatrix{Float64, Int64},
@@ -36,29 +36,29 @@ function Force_With_Pairs(particles::StructVector{Particle},
     kundall::ExtendableSparseMatrix{Float64, Int64})
     
     for pair in neighborlist
-        i::Int64 = min(pair[1],pair[2]) # For symetric acces to the kundall distance matrix
-        j::Int64 = max(pair[1],pair[2]) # For symetric acces to the kundall distance matrix
-        d::Float64 = pair[3]
+        @inbounds i::Int64 = min(pair[1],pair[2]) # For symetric acces to the kundall distance matrix
+        @inbounds j::Int64 = max(pair[1],pair[2]) # For symetric acces to the kundall distance matrix
+        @inbounds d::Float64 = pair[3]
 
         # Interpenetration distance
         # rᵢ - rⱼ means that goes from j to i.  # j=1 and i=2 
-        s::Float64 = particles.rad[i] + particles.rad[j] - d
+        @inbounds s::Float64 = particles.rad[i] + particles.rad[j] - d
 
         # Check for contact. Remember that the neighborlist hass a bigger cuttof. 
         if s < 0.0
             # Reset Kundall spring distance if theres no contact. 
-            kundall[i,j] = 0.0
+            @inbounds kundall[i,j] = 0.0
             continue
         end
 
         # Normal and Relative velocity. Carefull with angular velocity!
-        n::SVector{3, Float64} = unitary( particles.r[i] - particles.r[j] ) # The minus sing is due to the direction of the normal j to i
+        @inbounds n::SVector{3, Float64} = unitary( particles.r[i] - particles.r[j] ) # The minus sing is due to the direction of the normal j to i
         #                                                                   to account for the contact point (r-s/2)
-        Vij::SVector{3, Float64} = particles.v[i] + cross( particles.w[i], -(particles.rad[i]-s/2)*n ) - (particles.v[j] + cross( particles.w[j], (particles.rad[j]-s/2)*n ))
+        @inbounds Vij::SVector{3, Float64} = particles.v[i] + cross( particles.w[i], -(particles.rad[i]-s/2)*n ) - (particles.v[j] + cross( particles.w[j], (particles.rad[j]-s/2)*n ))
 
         # Tangential vector and Reduced mass
         t::SVector{3, Float64} = unitary( Vij - dot(Vij,n)*n )
-        mij::Float64 = particles.m[i]*particles.m[j]/(particles.m[i] + particles.m[j])
+        @inbounds mij::Float64 = particles.m[i]*particles.m[j]/(particles.m[i] + particles.m[j])
 
         # Calculate normal forces.
         Vn::Float64 = dot(Vij,n)
@@ -69,19 +69,19 @@ function Force_With_Pairs(particles::StructVector{Particle},
 
         # Calculate tangencial forces (Kundal friction force)
         Vt::Float64 = dot(Vij,t)
-        kundall[i,j] += Vt*conf.dt # Add distance to Kundall spring
-        Ft::Float64 = Kundall_friction(kundall[i,j], Fn, conf)
+        @inbounds kundall[i,j] += Vt*conf.dt # Add distance to Kundall spring
+        @inbounds Ft::Float64 = Kundall_friction(kundall[i,j], Fn, conf)
 
         # Total force
         F::SVector{3, Float64} = Fn*n + Ft*t
 
         # Add force (Newton 2 law) check sings
-        particles.a[i] += F/particles.m[i]
-        particles.a[j] -= F/particles.m[j]
+        @inbounds particles.a[i] += F/particles.m[i]
+        @inbounds particles.a[j] -= F/particles.m[j]
 
         # Add torque
-        particles.τ[i] += cross(-(particles.rad[i]-s/2)*n, F)
-        particles.τ[j] -= cross( (particles.rad[j]-s/2)*n, F)
+        @inbounds particles.τ[i] += cross(-(particles.rad[i]-s/2)*n, F)
+        @inbounds particles.τ[j] -= cross( (particles.rad[j]-s/2)*n, F)
     end
 
     return nothing
@@ -98,13 +98,13 @@ function Force_With_Walls(particles::StructVector{Particle}, i::Int64, conf::Con
     kundall::ExtendableSparseMatrix{Float64, Int64})
     
     # Reset torques and set gravity to reset forces
-    F::SVector{3, Float64} = conf.g*particles.m[i]
+    @inbounds F::SVector{3, Float64} = conf.g*particles.m[i]
     T::SVector{3, Float64} = zeros(SVector{3})
 
     for j in eachindex(conf.walls)
 
         # Interpenetration distance
-        s::Float64 = particles.rad[i] - dot(particles.r[i]-conf.walls[j].Q, conf.walls[j].n)
+        @inbounds s::Float64 = particles.rad[i] - dot(particles.r[i]-conf.walls[j].Q, conf.walls[j].n)
 
         # Check for contact
         if s < 0.0
@@ -114,14 +114,14 @@ function Force_With_Walls(particles::StructVector{Particle}, i::Int64, conf::Con
         end
 
         # Reduced mass and relative velocity. Carefull with angular velocity! The minus sing is due to the direction of the normal
-        Vij::SVector{3, Float64} = particles.v[i] + cross(particles.w[i], -(particles.rad[i]-s/2)*conf.walls[j].n)
+        @inbounds Vij::SVector{3, Float64} = particles.v[i] + cross(particles.w[i], -(particles.rad[i]-s/2)*conf.walls[j].n)
 
         # Tangential vector. The normal one is conf.walls[j].n it enters the particle
         t::SVector{3, Float64} = unitary( Vij - dot(Vij,conf.walls[j].n)*conf.walls[j].n )
 
         # Calculate normal forces.
         Vn::Float64 = dot(Vij,conf.walls[j].n)
-        Fn::Float64 = Hertz_Force(s,conf) + Damping_Force(s,particles.m[i],Vn,conf) # Reduced mass is m (wall with infinite mass).
+        @inbounds Fn::Float64 = Hertz_Force(s,conf) + Damping_Force(s,particles.m[i],Vn,conf) # Reduced mass is m (wall with infinite mass).
         @inbounds F += Fn*conf.walls[j].n
         if Fn < 0
             Fn = 0.0
@@ -130,13 +130,13 @@ function Force_With_Walls(particles::StructVector{Particle}, i::Int64, conf::Con
         # Calculate tangencial forces (Kundal friction force)
         Vt::Float64 = dot(Vij,t)
         kundall[i,j] += Vt*conf.dt # Add distance to Kundall spring
-        Ft::Float64 = Kundall_friction(kundall[i,j], abs(dot(F,conf.walls[j].n)), conf)
-        @inbounds F += Ft*t
+        @inbounds Ft::Float64 = Kundall_friction(kundall[i,j], abs(dot(F,conf.walls[j].n)), conf)
+        F += Ft*t
         @inbounds T += cross(-(particles.rad[i]-s/2)*conf.walls[j].n, F)
     end
 
-    particles.a[i] = F/particles.m[i]
-    particles.τ[i] = T
+    @inbounds particles.a[i] = F/particles.m[i]
+    @inbounds particles.τ[i] = T
     
     return nothing
 end
@@ -146,8 +146,8 @@ Hertz Force
 - s: Interpenetration distance.
 - conf: Simulation configuration, it's a Conf struct, implemented in Configuration.jl.  
 """
-function Hertz_Force(s::Float64, conf::Config)::Float64
-	conf.K*s^1.5
+@inline function Hertz_Force(s::Float64, conf::Config)::Float64
+	conf.K*s*sqrt(s) # ^1.5 but faster
 end
 
 """
@@ -156,7 +156,7 @@ Damping Force in the collision of 2 particles.
 - p1 and p2: particles interacting.
 - conf: Simulation configuration, its a Conf struct, implemented in Configuration.jl. 
 """
-function Damping_Force(s::Float64, mij::Float64, Vn::Float64, conf::Config)::Float64
+@inline function Damping_Force(s::Float64, mij::Float64, Vn::Float64, conf::Config)::Float64
     -conf.gamma*sqrt(s)*mij*Vn
 end
 
@@ -166,7 +166,7 @@ Calculates the friction force, wheder it is cinetic or static using the Kundall 
 - Fn: Normal force aplied to the particle.
 - conf: Simulation configuration, its a Conf struct, implemented in Configuration.jl. 
 """
-function Kundall_friction(kundallX::Float64, Fn::Float64, conf::Config)::Float64
+@inline function Kundall_friction(kundallX::Float64, Fn::Float64, conf::Config)::Float64
     Ft::Float64 = -conf.K_kundall*kundallX
     Ftmax::Float64 = conf.mu*abs(Fn)         
 

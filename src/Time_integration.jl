@@ -6,7 +6,7 @@ This function does all the work. It's the core of the simulation.
 - file: Where to save the simulation information.
 - save: Whether or not to save simulation data. 
 """
-function Propagate(data::Vector{Particle}, conf::Config; vis_steps=2000::Int, file="Paraview/data"::String, save=false::Bool)
+function Propagate(data::Vector{Particle}, conf::Config; vis_steps=2000::Int, file="Paraview/data"::String, save=false::Bool, rot_seq::Symbol=:XYZ)
     
     # Time and Printing Variables
     t::Float64 = 0.0
@@ -30,7 +30,7 @@ function Propagate(data::Vector{Particle}, conf::Config; vis_steps=2000::Int, fi
     
     # Save Initial Condition. Save_step is Defined in Writte.jl
     if save
-        Save_step(particles,file,Print,t); Print+=1
+        Save_step(particles,file,Print,t,rot_seq); Print+=1
     end
     
     # Time Integration
@@ -46,10 +46,13 @@ function Propagate(data::Vector{Particle}, conf::Config; vis_steps=2000::Int, fi
         # Remove 0 entries from the sparse matrix.
         dropzeros!(kundall_particles)
         dropzeros!(kundall_walls)
+
+        # Check simulation
+        Check_Simulation(particles)
         
         # Save Data Every vis_steps
         if i%vis_steps==0 && save 
-            Save_step(particles,file,Print)
+            Save_step(particles,file,Print,t,rot_seq)
             Print+=1
         end
     end
@@ -96,10 +99,11 @@ function time_step(particles::StructVector{<:AbstractParticle},
         @inbounds particles.w[i] = Move_w(particles.w[i],particles.τ[i],particles.I[i],conf.dt,0.5)
         @inbounds particles.q[i] = Move_q(particles.q[i],particles.w[i],conf.dt)
     end
-    # Calculate_Forces is defined in Forces.jl
+    #Calculate_Forces is defined in Forces.jl
     Calculate_Forces(particles,neighborlist,conf,kundall_particles,kundall_walls)
     # Update velocity. Move_v is defined in Particle.jl. 
     for i in eachindex(particles)
+        @inbounds particles.w[i] = Move_w(particles.w[i],particles.τ[i],particles.I[i],conf.dt,0.5)
         @inbounds particles.v[i] = Move_v(particles.v[i],particles.a[i],conf.dt,const2)
         @inbounds particles.r[i] = Move_r(particles.r[i],particles.v[i],conf.dt,const3)
     end
@@ -117,8 +121,6 @@ function time_step(particles::StructVector{<:AbstractParticle},
     for i in eachindex(particles)
         @inbounds particles.v[i] = Move_v(particles.v[i],particles.a[i],conf.dt,const2)
         @inbounds particles.r[i] = Move_r(particles.r[i],particles.v[i],conf.dt,const1)
-        @inbounds particles.w[i] = Move_w(particles.w[i],particles.τ[i],particles.I[i],conf.dt,0.5)
     end
-
     return nothing
 end
