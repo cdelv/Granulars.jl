@@ -39,7 +39,7 @@ struct Config
 	gamma::Float64
     g::SVector{3, Float64}
     walls::Vector{Wall}
-    K_kundall::Float64
+    K_cundall::Float64
     mu::Float64
 end
 
@@ -57,7 +57,7 @@ TO DO: make possible to use no walls.
 
 Does allocations!!!
 """
-function Config(tf::Real, dt::Real, walls::Vector{Wall}; g::Vector{<:Real}=[0,-9.8,0], k=1.0e5::Real, gamma=500::Real, KK=500.0::Real, mu=1.2::Real)::Config
+function Config(tf::Real, dt::Real, walls::Vector{Wall}; g::Vector{<:Real}=[0,-9.8,0], k=5.0e3::Real, gamma=500::Real, KK=800.0::Real, mu=0.2::Real)::Config
 	TF = convert(Float64,tf)
 	DT = convert(Float64,dt)
 	K = convert(Float64,k)

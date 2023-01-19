@@ -10,6 +10,7 @@ using SparseArrays: dropzeros!
 #using SuiteSparseGraphBLAS # explore this library after the updates that remove elements
 using ExtendableSparse: ExtendableSparseMatrix
 using ReferenceFrameRotations
+using Distributions
 
 include("Particle.jl")
 include("Configuration.jl")
@@ -22,8 +23,15 @@ include("Utils.jl")
 Tests Ideas:
     - Maxwell Boltzman (ideal gas 3D)
     - No Particles outside the box
+    - Cambiar constantes de Hertz y damping por lo que es
 """
 
+"""
+DUDAS:
+1. Como inicializar la orientación de los ejes principales?
+2. 
+"""
+# Cundall not Kundall, FIX
 
 # Delete old data files
 # Check if directory exists

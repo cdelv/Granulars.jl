@@ -23,7 +23,7 @@ function Save_step(particles::StructVector{Particle}, file::String, i::Int, t::F
     v = transpose(reshape(reinterpret(Float64,particles.v),(3,length(particles))))
     a = transpose(reshape(reinterpret(Float64,particles.a),(3,length(particles))))
     # q
-    w = transpose(reshape(reinterpret(Float64,particles.w),(3,length(particles))))
+    w = transpose(reshape(reinterpret(Float64,Body_to_lab.(particles.w,particles.q)),(3,length(particles))))
     τ = transpose(reshape(reinterpret(Float64,particles.τ),(3,length(particles))))
     m = transpose(reshape(reinterpret(Float64,particles.m),(1,length(particles))))
     II = transpose(reshape(reinterpret(Float64,particles.I),(3,length(particles))))

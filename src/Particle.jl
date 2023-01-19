@@ -21,7 +21,7 @@ I use torque as the inertia is used in a different way.
 - v: velocity of the center of mass of the particle.
 - a: acceleration of the center of mass of the particle.
 - q: quaternion that represents the orientation of the particle 
-- w: angular velodity of the particle 
+- w: angular velodity of the particle in de body frame
 - τ: torque over the particle
 - m: is the mass of the particle. Change for density?
 - I: inertia of the particle in the principal axes reference frame. 
@@ -137,10 +137,10 @@ Update angular velocity according to MD algortihm. I use:
 - cte: Integration algorithm constant. 
 """
 function Move_w(w::SVector{3, Float64}, τ::SVector{3, Float64}, II::SVector{3, Float64}, dt::Float64, cte=1.0::Float64)::SVector{3, Float64}
-    return w + dt*cte*SVector(
+    return w + SVector(
         τ[1] + w[2]*w[3]*(II[2]-II[3]),
         τ[2] + w[3]*w[1]*(II[3]-II[1]),
-        τ[3] + w[1]*w[2]*(II[1]-II[2]))./II
+        τ[3] + w[1]*w[2]*(II[1]-II[2]))*dt*cte./II
 end
 
 """
@@ -190,4 +190,21 @@ end
 function Set_rad(p::Particle, rad::Float64)::Particle
     @assert rad > 0.0
     return Particle(p.r,p.v,p.a,p.q,p.w,p.τ,p.m,p.I,rad)
+end
+
+"""
+Computes the 
+
+DOES ALLOCATIONS
+"""
+function Set_Inertia(p::Particle, num::Int64=50000)::Particle
+    LabF::SMatrix{3,3, Float64} = SMatrix{3,3, Float64}(I)
+    Inertia::Matrix{Float64} = Compute_Inertia_Tensor(p::Particle, num)
+    II::SVector{3, Float64} = SVector{3, Float64}(abs.(eigvals(Inertia)))
+    index::SVector{3, Int64} = sortperm(II, rev=true) # convention: biggest value in x
+    Axis::SMatrix{3,3, Float64} = SMatrix{3,3, Float64}(abs.(eigvecs(Inertia)[index,:]))
+    p = Set_I(p,II[index]) # sets the inertia in the principal axys
+    #orientation of principal axis
+    Set_q(p,angle_to_quat(angle(LabF[1,:],Axis[1,:]), angle(LabF[2,:],Axis[2,:]), angle(LabF[3,:],Axis[3,:]), :XYZ))
+    p
 end

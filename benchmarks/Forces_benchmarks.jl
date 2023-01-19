@@ -17,8 +17,8 @@ list = neighborlist!(system) # Type Warning
 kundall_particles = ExtendableSparseMatrix(zeros(length(data), length(data)))
 kundall_walls = ExtendableSparseMatrix(zeros(length(data), length(C.walls)))
 
-println("Kundall_friction")
-@btime Kundall_friction($1.0, $100.0, $C)
+println("Cundall_friction")
+@btime Cundall_friction($1.0, $100.0, $C)
 println("Damping force")
 @btime Damping_Force($0.05, $0.5, $12.0, $C)
 println("Hertz force")
