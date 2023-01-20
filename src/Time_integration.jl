@@ -8,49 +8,49 @@ This function does all the work. It's the core of the simulation.
 """
 function Propagate(data::Vector{Particle}, conf::Config; vis_steps=2000::Int, file="Paraview/data"::String, save=false::Bool, rot_seq::Symbol=:XYZ)
     
-    # Time and Printing Variables
+    # Time and Printing Variables.
     t::Float64 = 0.0
     Print::Int = 0
     
-    # Create Structure of Arrays
+    # Create Structure of Arrays.
     particles = StructArray(data)
     
     # Cutoff For The Cell Lists.
     Cutoff::Float64 = 3*maximum(particles.rad)
     
-    # Create Neighbor and Cell List
+    # Create Neighbor and Cell List.
     system = InPlaceNeighborList(x=particles.r, cutoff=Cutoff, parallel=false) # Explore Parallel Options
-    list = neighborlist!(system) # Type Warning
+    list = neighborlist!(system) # Type Warning!
 
     # Create Simetric Sparse Matrix for cundall spring forces calculation.
     # Sparse because most of the elements are zero and for large number of
     # particles we run out of memory.
     cundall_particles = ExtendableSparseMatrix(zeros(length(data), length(data)))
     cundall_walls = ExtendableSparseMatrix(zeros(length(data), length(conf.walls)))
+
+    # Sparse simetric matrix that stores wich particles have beam bonds.
+    # Stores the index of the array of beans that correspond to the bond.
+    beam_bonds = ExtendableSparseMatrix(zeros(Int64, length(data), length(conf.walls)))
     
     # Save Initial Condition. Save_step is Defined in Writte.jl
     if save
         Save_step(particles,file,Print,t,rot_seq); Print+=1
     end
     
-    # Time Integration
-    for i in 1:trunc(Int, conf.tf/conf.dt) # Number of Steps
+    # Time Integration.
+    for i in 1:trunc(Int, conf.tf/conf.dt) # Number of Steps.
         t+=conf.dt
         
         time_step(particles,conf,list,cundall_particles,cundall_walls)
         
-        # Update Cell List
+        # Update Cell List.
         update!(system, particles.r)
         list = neighborlist!(system)
 
-        # Remove 0 entries from the sparse matrix.
-        dropzeros!(cundall_particles)
-        dropzeros!(cundall_walls)
-
-        # Check simulation
-        Check_Simulation(particles)
+        # Check simulation.
+        # Check_Simulation(particles)
         
-        # Save Data Every vis_steps
+        # Save Data Every vis_steps.
         if i%vis_steps==0 && save 
             Save_step(particles,file,Print,t,rot_seq)
             Print+=1
@@ -61,7 +61,7 @@ function Propagate(data::Vector{Particle}, conf::Config; vis_steps=2000::Int, fi
 end
 
 """
-Performs one-time steps according to the velocity verlet algorithm.
+Performs one time-step according to the velocity verlet algorithm.
 - particles: StructArray of particles.
 - conf: Simulation configuration, it's a Conf struct, implemented in Configuration.jl. 
 - neighbor list: Neighbor list for a particle-to-particle interaction force calculation. 
@@ -87,8 +87,10 @@ function time_step(particles::StructVector{<:AbstractParticle},
         @inbounds particles.w[i] = Move_w(particles.w[i],particles.τ[i],particles.I[i],conf.dt,0.5)
         @inbounds particles.v[i] = Move_v(particles.v[i],particles.a[i],conf.dt,0.5)
     end
+
     #Calculate_Forces is defined in Forces.jl
     Calculate_Forces(particles,neighborlist,conf,cundall_particles,cundall_walls)
+
     for i in eachindex(particles)
         @inbounds particles.q[i] = Move_q(particles.q[i],particles.w[i],conf.dt)
         @inbounds particles.r[i] = Move_r(particles.r[i],particles.v[i],conf.dt)
@@ -98,8 +100,9 @@ function time_step(particles::StructVector{<:AbstractParticle},
     return nothing
 end
 
+
 """
-Performs one-time steps according to the PEFRL algorithm.
+Performs one time-step according to the PEFRL algorithm.
 - particles: StructArray of particles.
 - conf: Simulation configuration, it's a Conf struct, implemented in Configuration.jl. 
 - neighbor list: Neighbor list for a particle-to-particle interaction force calculation. 

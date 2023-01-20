@@ -7,6 +7,7 @@ CSV.write is the fastest writer I could find.
 - file: Name of the file group to save all the csvs.
 - i: Integer that defines the number of the frame to print.
 - t: Simulation time. 
+- rot_seq: Rotation sequence to use for the angles.
 """
 function Save_step(particles::StructVector{Particle}, file::String, i::Int, t::Float64, rot_seq::Symbol=:XYZ)
     
@@ -22,13 +23,13 @@ function Save_step(particles::StructVector{Particle}, file::String, i::Int, t::F
     r = transpose(reshape(reinterpret(Float64,particles.r),(3,length(particles))))
     v = transpose(reshape(reinterpret(Float64,particles.v),(3,length(particles))))
     a = transpose(reshape(reinterpret(Float64,particles.a),(3,length(particles))))
-    # q
+    # Convert to the lab frame. 
     w = transpose(reshape(reinterpret(Float64,Body_to_lab.(particles.w,particles.q)),(3,length(particles))))
-    τ = transpose(reshape(reinterpret(Float64,particles.τ),(3,length(particles))))
+    τ = transpose(reshape(reinterpret(Float64,Body_to_lab.(particles.τ,particles.q)),(3,length(particles))))
     m = transpose(reshape(reinterpret(Float64,particles.m),(1,length(particles))))
     II = transpose(reshape(reinterpret(Float64,particles.I),(3,length(particles))))
     rad = transpose(reshape(reinterpret(Float64,particles.rad),(1,length(particles))))
-    
+    # Save the Euler angles, not the quaternions.
     q = StructArray(quat_to_angle.(particles.q, rot_seq))
     a1 = transpose(reshape(reinterpret(Float64,q.a1),(1,length(particles))))
     a2 = transpose(reshape(reinterpret(Float64,q.a2),(1,length(particles))))

@@ -4,9 +4,9 @@ Abstract type for particles and inheritance. All particles should have:
 - r: position of the center of mass of the particle.
 - v: velocity of the center of mass of the particle.
 - a: acceleration of the center of mass of the particle.
-- q: quaternion that represents the orientation of the particle 
-- w: angular velodity of the particle 
-- τ: torque over the particle
+- q: quaternion that represents the orientation of the particle .
+- w: angular velocity of the particle in the body frame.
+- τ: torque over the particle in the body frame.
 - m: is the mass of the particle. Change for density?
 - I: inertia of the particle in the principal axes reference frame. 
 - rad: radius of the particle.
@@ -15,14 +15,14 @@ abstract type AbstractParticle end
 
 """
 Struct to represent particles. It's immutable for performance. Inspired from AtomsBase.jl. 
-I use acceleration, that way, one can avoid dividing by the mass every step. Due to the rotation algorithm,
+I use acceleration, that way, I can avoid dividing by the mass every step. Due to the rotation algorithm,
 I use torque as the inertia is used in a different way. 
 - r: position of the center of mass of the particle.
 - v: velocity of the center of mass of the particle.
 - a: acceleration of the center of mass of the particle.
-- q: quaternion that represents the orientation of the particle 
-- w: angular velodity of the particle in de body frame
-- τ: torque over the particle
+- q: quaternion that represents the orientation of the particle.
+- w: angular velocity of the particle in de body frame.
+- τ: torque over the particle in de body frame.
 - m: is the mass of the particle. Change for density?
 - I: inertia of the particle in the principal axes reference frame. 
 - rad: radius of the particle.
@@ -52,7 +52,7 @@ every parameter to create a particle. However, they aren't type-stable.
 Example -> Particle([0,0,0],[0,0,0],1,rad=1)
 """
 function Particle(r::Vector{<:Real}, v::Vector{<:Real}, w::Vector{<:Real}, m::Real; rad::Real=1.0)::Particle
-    Particle(SVector{3,Float64}(r),
+    p = Particle(SVector{3,Float64}(r),
         SVector{3,Float64}(v),
         zeros(SVector{3}),
         Quaternion(1.0I),
@@ -61,13 +61,14 @@ function Particle(r::Vector{<:Real}, v::Vector{<:Real}, w::Vector{<:Real}, m::Re
         Float64(m),
         ones(SVector{3}),
         Float64(rad))
+    Set_Inertia(p) # Adds the innertia tensor and particle orientation. Defined in Utils.jl
 end
 
 """
 Example -> Particle([0,0,0],[0,0,0],m=1,rad=1)
 """
 function Particle(r::Vector{<:Real}, v::Vector{<:Real}; m::Real=1.0, rad::Real=1.0)::Particle
-    Particle(SVector{3,Float64}(r),
+    p = Particle(SVector{3,Float64}(r),
         SVector{3,Float64}(v),
         zeros(SVector{3}),
         Quaternion(1.0I),
@@ -76,6 +77,7 @@ function Particle(r::Vector{<:Real}, v::Vector{<:Real}; m::Real=1.0, rad::Real=1
         Float64(m),
         ones(SVector{3}),
         Float64(rad))
+    Set_Inertia(p) # Adds the innertia tensor and particle orientation. Defined in Utils.jl
 end
 
 """
@@ -85,7 +87,7 @@ Example -> Particle(r=[0,0,0],m=1)
 Example -> Particle().
 """
 function Particle(;r::Vector{<:Real}=[0.0,0.0,0.0], v::Vector{<:Real}=[0.0,0.0,0.0], w::Vector{<:Real}=[0.0,0.0,0.0], m::Real=1.0, I::Vector{<:Real}=[1.0,1.0,1.0], rad::Real=1.0)::Particle
-    Particle(SVector{3,Float64}(r),
+    p = Particle(SVector{3,Float64}(r),
         SVector{3,Float64}(v),
         zeros(SVector{3}),
         Quaternion(1.0I),
@@ -94,6 +96,7 @@ function Particle(;r::Vector{<:Real}=[0.0,0.0,0.0], v::Vector{<:Real}=[0.0,0.0,0
         Float64(m),
         SVector{3,Float64}(I),
         Float64(rad))
+    Set_Inertia(p) # Adds the innertia tensor and particle orientation. Defined in Utils.jl
 end
 
 #=
@@ -190,21 +193,4 @@ end
 function Set_rad(p::Particle, rad::Float64)::Particle
     @assert rad > 0.0
     return Particle(p.r,p.v,p.a,p.q,p.w,p.τ,p.m,p.I,rad)
-end
-
-"""
-Computes the 
-
-DOES ALLOCATIONS
-"""
-function Set_Inertia(p::Particle, num::Int64=50000)::Particle
-    LabF::SMatrix{3,3, Float64} = SMatrix{3,3, Float64}(I)
-    Inertia::Matrix{Float64} = Compute_Inertia_Tensor(p::Particle, num)
-    II::SVector{3, Float64} = SVector{3, Float64}(abs.(eigvals(Inertia)))
-    index::SVector{3, Int64} = sortperm(II, rev=true) # convention: biggest value in x
-    Axis::SMatrix{3,3, Float64} = SMatrix{3,3, Float64}(abs.(eigvecs(Inertia)[index,:]))
-    p = Set_I(p,II[index]) # sets the inertia in the principal axys
-    #orientation of principal axis
-    Set_q(p,angle_to_quat(angle(LabF[1,:],Axis[1,:]), angle(LabF[2,:],Axis[2,:]), angle(LabF[3,:],Axis[3,:]), :XYZ))
-    p
 end

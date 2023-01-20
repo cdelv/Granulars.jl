@@ -17,6 +17,7 @@ include("Configuration.jl")
 include("Time_integration.jl")
 include("Writter.jl")
 include("Forces.jl")
+include("Beams.jl")
 include("Utils.jl")
 
 """
@@ -24,20 +25,21 @@ Tests Ideas:
     - Maxwell Boltzman (ideal gas 3D)
     - No Particles outside the box
     - Cambiar constantes de Hertz y damping por lo que es
+    - Normalized quaternions
+    - viga cantilever
+    - viga de flexion
+    - sol analítica trompo
+    - Agradecimiento a ricardo
 """
 
 """
 DUDAS:
-1. Como inicializar la orientación de los ejes principales?
-2. 
+
 """
-# Cundall not Kundall, FIX
 
 # Delete old data files
 # Check if directory exists
 
-# 3. Compute Inertia tensor and principal axys
-# 
 # 4. Implement BeamForces
 # 5. Implement MultiSpheres and sphere fitting
 # - https://jekel.me/2015/Least-Squares-Sphere-Fit/

@@ -23,10 +23,10 @@ end
 """
 Struct to configure the simulation. It stores information about the 
 time, force parameters, and walls.  
-- tf: Maximum simulation time
+- tf: Maximum simulation time.
 - dt: Time step.
-- K: Constant for Hertz force calculation. Has to be change to be more general. TO DO: (Support for multiple species)
-- gamma: Damping constant
+- K: Constant for Hertz force calculation. CHANGE FOR EXACT VAL. TO DO: (Support for multiple species)
+- gamma: Damping constant.
 - g: Simulation gravity vector. 
 - walls: Array of Wall structs that define the simulation bounds. 
 - K_kundall: Kundall spring constant. TO DO: (Support for multiple species)

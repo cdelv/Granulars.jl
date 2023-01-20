@@ -48,10 +48,13 @@ function Force_With_Pairs(particles::StructVector{Particle},
         if s < 0.0
             # Reset Cundall spring distance if there is no contact. 
             @inbounds cundall[i,j] = 0.0
+            dropzeros!(cundall) # Remove 0 entries from the sparse matrix.
             continue
         end
 
-        # Normal vector
+        #BEAM FORCE CALCULATION
+
+        # Normal vector.
         @inbounds n::SVector{3, Float64} = unitary( particles.r[i] - particles.r[j] ) # The normal goes from j to i.
         
         # Relative velocity. Carefull with angular velocity!
@@ -77,12 +80,12 @@ function Force_With_Pairs(particles::StructVector{Particle},
         # Total force
         F::SVector{3, Float64} = Fn*n + Ft*t
 
-        # Add force (Newton 2 law) check signs
+        # Add force (Newton 2 law)
         @inbounds particles.a[i] += F/particles.m[i]
         @inbounds particles.a[j] -= F/particles.m[j]
 
         # Add torque
-        @inbounds particles.τ[i] += Lab_to_body(cross(-particles.rad[i]*n, F), particles.q[i]) #Check this!!
+        @inbounds particles.τ[i] += Lab_to_body(cross(-particles.rad[i]*n, F), particles.q[i]) #Check this SIGNS!!
         @inbounds particles.τ[j] += Lab_to_body(cross(particles.rad[j]*n, -F), particles.q[j])
     end
 
@@ -91,7 +94,6 @@ end
 
 """
 Uses the distance between a plane and a point to check for contact with the walls.
-Then, it produces Hertz's force in the direction of the normal vector.
 - particles: StructArray of particles.
 - conf: Simulation configuration, its a Conf struct, implemented in Configuration.jl. 
 - cundall: Sparse symmetric matrix that stores the Cundall spring for particle-wall interactions. 
@@ -112,6 +114,7 @@ function Force_With_Walls(particles::StructVector{Particle}, i::Int64, conf::Con
         if s < 0.0
             # Reset Cundall spring distance if theres no contact. 
             cundall[i,j] = 0.0
+            dropzeros!(cundall) # Remove 0 entries from the sparse matrix.
             continue
         end
 
@@ -144,18 +147,19 @@ function Force_With_Walls(particles::StructVector{Particle}, i::Int64, conf::Con
 end
 
 """
-Hertz Force
+Hertz Force.
 - s: Interpenetration distance.
 - conf: Simulation configuration, it's a Conf struct, implemented in Configuration.jl.  
 """
 @inline function Hertz_Force(s::Float64, conf::Config)::Float64
-	conf.K*s*sqrt(s) # ^1.5 but faster
+	conf.K*s*sqrt(s) # s^1.5 but faster
 end
 
 """
-Damping Force in the collision of 2 particles. 
+Damping Force. 
 - s: Interpenetration distance.
-- p1 and p2: particles interacting.
+- mij: Reduced mass.
+- Vn: Normal component of relative velocity. 
 - conf: Simulation configuration, its a Conf struct, implemented in Configuration.jl. 
 """
 @inline function Damping_Force(s::Float64, mij::Float64, Vn::Float64, conf::Config)::Float64
@@ -163,8 +167,8 @@ Damping Force in the collision of 2 particles.
 end
 
 """
-Calculates the friction force, wheder it is cinetic or static using the Cundall friction force. 
-- cundallX: Cundall spring elongation. 
+Calculates the friction force, wheder it is cinetic or static using the Cundall friction model. 
+- X_cundall: Cundall spring elongation. 
 - Fn: Normal force aplied to the particle.
 - conf: Simulation configuration, its a Conf struct, implemented in Configuration.jl. 
 """
@@ -172,7 +176,8 @@ Calculates the friction force, wheder it is cinetic or static using the Cundall 
     Ft::Float64 = -conf.K_cundall*X_cundall
     Ftmax::Float64 = conf.mu*Fn         
 
-    # Check if friction is static or dynamic. TO DO: Diferenciate between the 2 coeficients.
+    # Check if friction is static or dynamic. 
+    # TO DO: Diferenciate between the 2 coeficients BETTER!
     if abs(Ft) > Ftmax 
         Ft = sign(Ft)*Ftmax
     end

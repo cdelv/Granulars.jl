@@ -11,6 +11,12 @@ function unitary(v::SVector{3, Float64})::SVector{3, Float64}
     end
 end
 
+"""
+Checks that the simulation is working fine.
+It makes sure that rad, m, and Inertia tensor of particles is not 0.
+Also, checks that the quaternion is normalized. If not, it normalizes it. 
+- particles: StructArray of particles.
+"""
 function Check_Simulation(particles::StructVector{<:AbstractParticle})
     for i in eachindex(particles)
         @assert all(>(0.0), particles.I[i])
@@ -24,8 +30,10 @@ function Check_Simulation(particles::StructVector{<:AbstractParticle})
 end
 
 """
-Computes the inertia tensor of a spherical particle using the montecarlo integration.
+Computes the inertia tensor of a spherical particle using montecarlo integration.
 For a sphere this is overkill but for the multispheres will be usefull. 
+- p: particle to use in the calculations.
+- num: number of samples for the integral. 
 
 PUT THE EXACT INERTIA WITH WHEN THE MULTISPHERE IS DONE
 
@@ -53,6 +61,24 @@ function Compute_Inertia_Tensor(p::Particle, num::Int64=100000)::Matrix{Float64}
     return (p.m/T)*SMatrix{3,3}(Ixx, -Ixy, -Ixz, -Ixy, Iyy, -Ixy, -Ixy, Iyz, Izz)
 end
 
+
+"""
+Sets the inertia tensor and orientation of a particle.
+- p: particle to edit.
+- num: number of samples for the integral. 
+
+DOES ALLOCATIONS!
+"""
+function Set_Inertia(p::Particle, num::Int64=50000)::Particle
+    Inertia::Matrix{Float64} = Compute_Inertia_Tensor(p::Particle, num)
+    II::SVector{3, Float64} = SVector{3, Float64}(abs.(eigvals(Inertia))) # Principal axis inertia tensor (diagonal M).
+    index::SVector{3, Int64} = sortperm(II, rev=true) # convention: biggest value in x, smallest in z.
+    Axis::SMatrix{3,3, Float64} = SMatrix{3,3, Float64}(abs.(eigvecs(Inertia)[index,:]))
+    p = Set_I(p,II[index]) # sets the inertia in the principal axys
+    p = Set_q(p,dcm_to_quat(orthonormalize(DCM(transpose(Axis))))) # set the orientation of principal axis
+    Set_q(p,p.q/norm(p.q)) # normalize the quaternion
+end
+
 """
 Returns the smallest angle between two vectors in radians where  0 <= angle(v, w) <= π
 It uses atan(norm(cross(u,v)),dot(u,v)) insted of acos(dot(v,w) / (norm(v)*norm(w))) as it is 
@@ -67,11 +93,21 @@ function angle(v::SVector{3},w::SVector{3})::Float64
     a::Float64 = atan(norm(cross(v,w)),dot(v,w))
 end
 
-# reference frame rotations
+
+"""
+Transforms a vector from the lab frame to the body frame.
+- v: vector to transform.
+- q: quaternion with the orientation of the body frame.
+"""
 function Lab_to_body(v::SVector{3}, q::Quaternion{Float64})::SVector{3}
     return quat_to_dcm(q)*v
 end
 
+"""
+Transforms a vector from the body frame to the lab frame.
+- v: vector to transform.
+- q: quaternion with the orientation of the body frame.
+"""
 function Body_to_lab(v::SVector{3}, q::Quaternion{Float64})::SVector{3}
     return inv_rotation(quat_to_dcm(q))*v
 end
