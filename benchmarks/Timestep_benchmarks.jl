@@ -8,7 +8,7 @@ W4 = Wall([0,-1,0],[0,25,0])
 W5 = Wall([0,0,1],[0,0,0])
 W6 = Wall([0,0,-1],[0,0,25])
 walls = [W1,W2,W3,W4,W5,W6]
-C = Config(10.0,0.1,walls)
+C = Config(10.0,0.1,walls=walls)
 data = [Particle((25-2.0)*rand(3)+[1,1,1],4.0*rand(3)) for i = 1:100]
 particles = StructArray(data)
 Cutoff::Float64 = 4*maximum(particles.rad)
@@ -19,3 +19,6 @@ kundall_walls = ExtendableSparseMatrix(zeros(length(data), length(C.walls)))
 
 println("time step")
 @btime time_step($particles, $C, $list, $kundall_particles, $kundall_walls)
+
+println("PEFRL time step")
+@btime PEFRL_time_step($particles, $C, $list, $kundall_particles, $kundall_walls)

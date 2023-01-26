@@ -14,10 +14,10 @@ using Distributions
 
 include("Particle.jl")
 include("Configuration.jl")
+include("Beams.jl")
 include("Time_integration.jl")
 include("Writter.jl")
 include("Forces.jl")
-include("Beams.jl")
 include("Utils.jl")
 
 """
@@ -30,11 +30,13 @@ Tests Ideas:
     - viga de flexion
     - sol analítica trompo
     - Agradecimiento a ricardo
+    - rotar esferas y ver fuerza 0
 """
 
 """
 DUDAS:
-
+1. No need to update position and orientation of the beam, k matrix does it all
+2. Very hard oscilations....
 """
 
 # Delete old data files

@@ -10,7 +10,9 @@ function Calculate_Forces(particles::StructVector{Particle},
     neighborlist::Vector{Tuple{Int64, Int64, Float64}}, 
     conf::Config,
     cundall_particles::ExtendableSparseMatrix{Float64, Int64},
-    cundall_walls::ExtendableSparseMatrix{Float64, Int64})
+    cundall_walls::ExtendableSparseMatrix{Float64, Int64},
+    beam_bonds::ExtendableSparseMatrix{Int64, Int64},
+    beams::StructVector{Beam})
     
     for i in eachindex(particles)
         # Calculate and Add Forces With Walls, torque and force is reset in the function
@@ -18,7 +20,7 @@ function Calculate_Forces(particles::StructVector{Particle},
     end
 
     # Calculate Forces Between Particles using the neighborlist.
-    Force_With_Pairs(particles, conf, neighborlist, cundall_particles)
+    Force_With_Pairs(particles, conf, neighborlist, cundall_particles,beam_bonds,beams)
 
     return nothing
 end
@@ -33,7 +35,9 @@ Calculate the force between pairs of particles using the neighbor list.
 function Force_With_Pairs(particles::StructVector{Particle}, 
     conf::Config, 
     neighborlist::Vector{Tuple{Int64, Int64, Float64}},
-    cundall::ExtendableSparseMatrix{Float64, Int64})
+    cundall::ExtendableSparseMatrix{Float64, Int64},
+    beam_bonds::ExtendableSparseMatrix{Int64, Int64},
+    beams::StructVector{Beam})
     
     for pair in neighborlist
         @inbounds i::Int64 = min(pair[1],pair[2]) # For symetric acces to the Cundall distance matrix
@@ -44,6 +48,15 @@ function Force_With_Pairs(particles::StructVector{Particle},
         # rᵢ - rⱼ means that goes from j to i. j=1 and i=2.
         @inbounds s::Float64 = particles.rad[i] + particles.rad[j] - d
 
+        # Normal vector.
+        @inbounds n::SVector{3, Float64} = unitary( particles.r[i] - particles.r[j] ) # The normal goes from j to i.
+
+        # Calculate beam forces.
+        if beam_bonds[i,j]!=0
+            Beam_Force(particles, beams, i, j, beam_bonds[i,j], -n, conf) # -n because it has to go from i to j
+            continue # No contact forces between beam bonded particles
+        end
+
         # Check for contact. Remember that the neighborlist hass a bigger cuttof. 
         if s < 0.0
             # Reset Cundall spring distance if there is no contact. 
@@ -52,11 +65,6 @@ function Force_With_Pairs(particles::StructVector{Particle},
             continue
         end
 
-        #BEAM FORCE CALCULATION
-
-        # Normal vector.
-        @inbounds n::SVector{3, Float64} = unitary( particles.r[i] - particles.r[j] ) # The normal goes from j to i.
-        
         # Relative velocity. Carefull with angular velocity!
         @inbounds Vij::SVector{3, Float64} = (particles.v[i] + cross( Body_to_lab(particles.w[i],particles.q[i]), -particles.rad[i]*n ) 
             - (particles.v[j] + cross( Body_to_lab(particles.w[j],particles.q[j]), particles.rad[j]*n )))
@@ -182,4 +190,43 @@ Calculates the friction force, wheder it is cinetic or static using the Cundall 
         Ft = sign(Ft)*Ftmax
     end
     Ft
+end
+
+
+"""
+- particles: StructArray of particles.
+- i:
+- j:
+- k:
+- n:
+- conf: Simulation configuration, it's a Conf struct, implemented in Configuration.jl. 
+"""
+function Beam_Force(particles::StructVector{Particle}, 
+    beams::StructVector{Beam}, i::Int64, j::Int64, k::Int64, 
+    n::SVector{3,Float64}, conf::Config)
+
+    # Calculate displacements in the beam frame.
+    dxi::SVector{3,Float64} = Lab_to_Beam(n, beams.r_i[k] - particles.r[i])
+    dΩi::SVector{3,Float64} = Lab_to_Beam(n, quat_to_angle(beams.q_i[k]) - quat_to_angle(particles.q[i]))
+    dxj::SVector{3,Float64} = Lab_to_Beam(n, beams.r_j[k] - particles.r[j])
+    dΩj::SVector{3,Float64} = Lab_to_Beam(n, quat_to_angle(beams.q_j[k]) - quat_to_angle(particles.q[j]))
+
+    # Create the 12x12 transformation matrix and calculate forces and torques.
+    @inbounds Δs::SVector{12,Float64} = SVector(dxi[1], dxi[2], dxi[3], dΩi[1], dΩi[2], dΩi[3], dxj[1], dxj[2], dxj[3], dΩj[1], dΩj[2], dΩj[3])
+    F::SVector{12,Float64} = K_beam(beams.A[k], beams.L[k], conf.E, conf.G)*Δs #cte k matrix, maybe compute once
+
+    # Add forces and torques to the particles.
+    @inbounds particles.a[i] += Beam_to_Lab(n, SVector(F[1], F[2], F[3]))/particles.m[i]
+    @inbounds particles.τ[i] += Lab_to_body(Beam_to_Lab(n, SVector(F[4], F[5], F[6])), particles.q[i])
+
+    @inbounds particles.a[j] += Beam_to_Lab(n, SVector(F[7], F[8], F[9]))/particles.m[j]
+    @inbounds particles.τ[j] += Lab_to_body(Beam_to_Lab(n, SVector(F[10],F[11],F[12])), particles.q[j])
+
+    # Update the beam information (NOT NEEDED DUE TO THE WAY THE K MATRIX WORKS)
+    beams.r_i[k] = particles.r[i]
+    beams.r_j[k] = particles.r[j]
+    beams.q_i[k] = particles.q[i]
+    beams.q_j[k] = particles.q[j]
+
+    return nothing
 end

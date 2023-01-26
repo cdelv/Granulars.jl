@@ -6,7 +6,8 @@ This function does all the work. It's the core of the simulation.
 - file: Where to save the simulation information.
 - save: Whether or not to save simulation data. 
 """
-function Propagate(data::Vector{Particle}, conf::Config; vis_steps=2000::Int, file="Paraview/data"::String, save=false::Bool, rot_seq::Symbol=:XYZ)
+function Propagate(data::Vector{Particle}, conf::Config; vis_steps::Int=2000, file::String="Paraview/data", 
+    save::Bool=false, rot_seq::Symbol=:XYZ, beam_forces::Bool=false)
     
     # Time and Printing Variables.
     t::Float64 = 0.0
@@ -16,7 +17,7 @@ function Propagate(data::Vector{Particle}, conf::Config; vis_steps=2000::Int, fi
     particles = StructArray(data)
     
     # Cutoff For The Cell Lists.
-    Cutoff::Float64 = 3*maximum(particles.rad)
+    Cutoff::Float64 = 3.0*maximum(particles.rad)
     
     # Create Neighbor and Cell List.
     system = InPlaceNeighborList(x=particles.r, cutoff=Cutoff, parallel=false) # Explore Parallel Options
@@ -29,19 +30,32 @@ function Propagate(data::Vector{Particle}, conf::Config; vis_steps=2000::Int, fi
     cundall_walls = ExtendableSparseMatrix(zeros(length(data), length(conf.walls)))
 
     # Sparse simetric matrix that stores wich particles have beam bonds.
-    # Stores the index of the array of beans that correspond to the bond.
-    beam_bonds = ExtendableSparseMatrix(zeros(Int64, length(data), length(conf.walls)))
+    # Stores the index of the array of beams that correspond to the bond.
+    beam_bonds = ExtendableSparseMatrix(zeros(Int64, length(data), length(data)))
+
+    # Stores the simulation beams
+    beams = Beam[]
+
+    # Creates beams between all ovelaping particles
+    if beam_forces
+        # Defined in Beams.jl
+        Create_beams(particles, list, conf, beam_bonds, beams)
+    end
+
+    # Stores the simulation beams (for performance)
+    beams = StructArray(beams)
     
     # Save Initial Condition. Save_step is Defined in Writte.jl
     if save
-        Save_step(particles,file,Print,t,rot_seq); Print+=1
+        Save_step(particles,file,Print,t,rot_seq)
+        Print+=1
     end
     
     # Time Integration.
     for i in 1:trunc(Int, conf.tf/conf.dt) # Number of Steps.
         t+=conf.dt
         
-        time_step(particles,conf,list,cundall_particles,cundall_walls)
+        time_step(particles,conf,list,cundall_particles,cundall_walls,beam_bonds,beams)
         
         # Update Cell List.
         update!(system, particles.r)
@@ -80,7 +94,9 @@ function time_step(particles::StructVector{<:AbstractParticle},
     conf::Config, 
     neighborlist::Vector{Tuple{Int64, Int64, Float64}},
     cundall_particles::ExtendableSparseMatrix{Float64, Int64},
-    cundall_walls::ExtendableSparseMatrix{Float64, Int64})
+    cundall_walls::ExtendableSparseMatrix{Float64, Int64},
+    beam_bonds::ExtendableSparseMatrix{Int64, Int64},
+    beams::StructVector{Beam})
 
     # Update Position. Move_r, Move_q, Move_w, and Move_v are defined in Particle.jl.
     for i in eachindex(particles)
@@ -89,7 +105,7 @@ function time_step(particles::StructVector{<:AbstractParticle},
     end
 
     #Calculate_Forces is defined in Forces.jl
-    Calculate_Forces(particles,neighborlist,conf,cundall_particles,cundall_walls)
+    Calculate_Forces(particles,neighborlist,conf,cundall_particles,cundall_walls,beam_bonds,beams)
 
     for i in eachindex(particles)
         @inbounds particles.q[i] = Move_q(particles.q[i],particles.w[i],conf.dt)
@@ -128,7 +144,9 @@ function PEFRL_time_step(particles::StructVector{<:AbstractParticle},
     conf::Config, 
     neighborlist::Vector{Tuple{Int64, Int64, Float64}},
     cundall_particles::ExtendableSparseMatrix{Float64, Int64},
-    cundall_walls::ExtendableSparseMatrix{Float64, Int64})
+    cundall_walls::ExtendableSparseMatrix{Float64, Int64},
+    beam_bonds::ExtendableSparseMatrix{Int64, Int64},
+    beams::StructVector{Beam})
     
     #PEFRL constants
     const1::Float64 = 0.1644986515575760     #ζ
@@ -144,24 +162,24 @@ function PEFRL_time_step(particles::StructVector{<:AbstractParticle},
         @inbounds particles.q[i] = Move_q(particles.q[i],particles.w[i],conf.dt)
     end
     #Calculate_Forces is defined in Forces.jl
-    Calculate_Forces(particles,neighborlist,conf,cundall_particles,cundall_walls)
+    Calculate_Forces(particles,neighborlist,conf,cundall_particles,cundall_walls,beam_bonds,beams)
     # Update velocity. Move_v is defined in Particle.jl. 
     for i in eachindex(particles)
         @inbounds particles.w[i] = Move_w(particles.w[i],particles.τ[i],particles.I[i],conf.dt,0.5)
         @inbounds particles.v[i] = Move_v(particles.v[i],particles.a[i],conf.dt,const2)
         @inbounds particles.r[i] = Move_r(particles.r[i],particles.v[i],conf.dt,const3)
     end
-    Calculate_Forces(particles,neighborlist,conf,cundall_particles,cundall_walls)
+    Calculate_Forces(particles,neighborlist,conf,cundall_particles,cundall_walls,beam_bonds,beams)
     for i in eachindex(particles)
         @inbounds particles.v[i] = Move_v(particles.v[i],particles.a[i],conf.dt,const4)
         @inbounds particles.r[i] = Move_r(particles.r[i],particles.v[i],conf.dt,const5)
     end
-    Calculate_Forces(particles,neighborlist,conf,cundall_particles,cundall_walls)
+    Calculate_Forces(particles,neighborlist,conf,cundall_particles,cundall_walls,beam_bonds,beams)
     for i in eachindex(particles)
         @inbounds particles.v[i] = Move_v(particles.v[i],particles.a[i],conf.dt,const4)
         @inbounds particles.r[i] = Move_r(particles.r[i],particles.v[i],conf.dt,const3)
     end
-    Calculate_Forces(particles,neighborlist,conf,cundall_particles,cundall_walls)
+    Calculate_Forces(particles,neighborlist,conf,cundall_particles,cundall_walls,beam_bonds,beams)
     for i in eachindex(particles)
         @inbounds particles.v[i] = Move_v(particles.v[i],particles.a[i],conf.dt,const2)
         @inbounds particles.r[i] = Move_r(particles.r[i],particles.v[i],conf.dt,const1)
