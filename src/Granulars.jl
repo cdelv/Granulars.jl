@@ -28,9 +28,11 @@ Tests Ideas:
     - Normalized quaternions
     - viga cantilever
     - viga de flexion
+    - Oscilación viga empotrada
     - sol analítica trompo
     - Agradecimiento a ricardo
     - rotar esferas y ver fuerza 0
+    - T que da vueltas
 """
 
 """

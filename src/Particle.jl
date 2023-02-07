@@ -139,11 +139,19 @@ Update angular velocity according to MD algortihm. I use:
 - dt: Time step
 - cte: Integration algorithm constant. 
 """
-function Move_w(w::SVector{3, Float64}, τ::SVector{3, Float64}, II::SVector{3, Float64}, dt::Float64, cte=1.0::Float64)::SVector{3, Float64}
-    return w + SVector(
-        τ[1] + w[2]*w[3]*(II[2]-II[3]),
-        τ[2] + w[3]*w[1]*(II[3]-II[1]),
-        τ[3] + w[1]*w[2]*(II[1]-II[2]))*dt*cte./II
+function Move_w(w::SVector{3, Float64}, τ::SVector{3, Float64}, II::SVector{3, Float64}, dt::Float64, cte=1.0::Float64, niter=3::Int64)::SVector{3, Float64}
+    # Initial guess as recomended in the article
+    ww::SVector{3, Float64} = w
+    
+    # Solve non-linear system
+    for i in 1:niter
+        ww = w + SVector(
+            τ[1] + 0.5*(w[2]*w[3]+ww[2]*ww[3])*(II[2]-II[3]),
+            τ[2] + 0.5*(w[3]*w[1]+ww[3]*ww[1])*(II[3]-II[1]),
+            τ[3] + 0.5*(w[1]*w[2]+ww[1]*ww[2])*(II[1]-II[2]))*dt*cte./II
+    end
+
+    return ww
 end
 
 """

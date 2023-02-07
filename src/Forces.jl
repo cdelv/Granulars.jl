@@ -97,6 +97,12 @@ function Force_With_Pairs(particles::StructVector{Particle},
         @inbounds particles.τ[j] += Lab_to_body(cross(particles.rad[j]*n, -F), particles.q[j])
     end
 
+    particles.τ[1] = SVector(0.0,0.0,0.0)
+    particles.a[1] = SVector(0.0,0.0,0.0)
+
+    particles.τ[100] = SVector(0.0,0.0,0.0)
+    particles.a[100] = SVector(0.0,0.0,0.0)
+
     return nothing
 end
 
@@ -216,17 +222,24 @@ function Beam_Force(particles::StructVector{Particle},
     F::SVector{12,Float64} = K_beam(beams.A[k], beams.L[k], conf.E, conf.G)*Δs #cte k matrix, maybe compute once
 
     # Add forces and torques to the particles.
-    @inbounds particles.a[i] += Beam_to_Lab(n, SVector(F[1], F[2], F[3]))/particles.m[i]
+    @inbounds particles.a[i] += Beam_to_Lab(n, SVector(F[1], F[2], F[3]))/particles.m[i] 
     @inbounds particles.τ[i] += Lab_to_body(Beam_to_Lab(n, SVector(F[4], F[5], F[6])), particles.q[i])
 
     @inbounds particles.a[j] += Beam_to_Lab(n, SVector(F[7], F[8], F[9]))/particles.m[j]
     @inbounds particles.τ[j] += Lab_to_body(Beam_to_Lab(n, SVector(F[10],F[11],F[12])), particles.q[j])
 
+    γ = 0.1
+    @inbounds particles.a[i] += -γ*particles.v[i]
+    @inbounds particles.τ[i] += -γ*particles.w[i]
+
+    @inbounds particles.a[j] += -γ*particles.v[j]
+    @inbounds particles.τ[j] += -γ*particles.w[j]
+
     # Update the beam information (NOT NEEDED DUE TO THE WAY THE K MATRIX WORKS)
-    beams.r_i[k] = particles.r[i]
-    beams.r_j[k] = particles.r[j]
-    beams.q_i[k] = particles.q[i]
-    beams.q_j[k] = particles.q[j]
+    #beams.r_i[k] = particles.r[i]
+    #beams.r_j[k] = particles.r[j]
+    #beams.q_i[k] = particles.q[i]
+    #beams.q_j[k] = particles.q[j]
 
     return nothing
 end

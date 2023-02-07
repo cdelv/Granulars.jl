@@ -50,6 +50,9 @@ function Propagate(data::Vector{Particle}, conf::Config; vis_steps::Int=2000, fi
         Save_step(particles,file,Print,t,rot_seq)
         Print+=1
     end
+
+    # Needed for the LeapFrog Algorithm
+    time_step_start(particles,conf,list,cundall_particles,cundall_walls,beam_bonds,beams)
     
     # Time Integration.
     for i in 1:trunc(Int, conf.tf/conf.dt) # Number of Steps.
@@ -75,20 +78,56 @@ function Propagate(data::Vector{Particle}, conf::Config; vis_steps::Int=2000, fi
 end
 
 """
-Performs one time-step according to the velocity verlet algorithm.
+Performs the first time-step according to the LeapFrog algorithm.
 - particles: StructArray of particles.
 - conf: Simulation configuration, it's a Conf struct, implemented in Configuration.jl. 
 - neighbor list: Neighbor list for a particle-to-particle interaction force calculation. 
 - cundall_particles: Sparse symmetric matrix that stores the Cundall spring distance for particle-particle interactions.
 - cundall_walls: Sparse symmetric matrix that stores the Cundall spring for particle-wall interactions.
 
-The traslation algorithm is velocity verlet, which is O(3) in position and velocity. 
+The traslation algorithm is LeapFrog, which is O(4) in position and velocity. 
 
 The rotations algorithm is:
 
 - Algorithm for numerical integration of the rigid-body equations of motion, Igor P. Omelyan, 1998
 
-This algortihm is O(3) in orientation and angular velocity and uses quaternions.
+This algortihm is O(3) in orientation and angular velocity and uses quaternions. Similar to LeapFrog.
+"""
+function time_step_start(particles::StructVector{<:AbstractParticle}, 
+    conf::Config, 
+    neighborlist::Vector{Tuple{Int64, Int64, Float64}},
+    cundall_particles::ExtendableSparseMatrix{Float64, Int64},
+    cundall_walls::ExtendableSparseMatrix{Float64, Int64},
+    beam_bonds::ExtendableSparseMatrix{Int64, Int64},
+    beams::StructVector{Beam})
+    
+    #Calculate_Forces is defined in Forces.jl
+    Calculate_Forces(particles,neighborlist,conf,cundall_particles,cundall_walls,beam_bonds,beams)
+
+    # Initialize Velocity. Move_w, and Move_v are defined in Particle.jl.
+    for i in eachindex(particles)
+        @inbounds particles.w[i] = Move_w(particles.w[i],particles.τ[i],particles.I[i],conf.dt,-0.5)
+        @inbounds particles.v[i] = Move_v(particles.v[i],particles.a[i],conf.dt,-0.5)
+    end
+
+end
+
+
+"""
+Performs one time-step according to the LeapFrog algorithm.
+- particles: StructArray of particles.
+- conf: Simulation configuration, it's a Conf struct, implemented in Configuration.jl. 
+- neighbor list: Neighbor list for a particle-to-particle interaction force calculation. 
+- cundall_particles: Sparse symmetric matrix that stores the Cundall spring distance for particle-particle interactions.
+- cundall_walls: Sparse symmetric matrix that stores the Cundall spring for particle-wall interactions.
+
+The traslation algorithm is LeapFrog, which is O(4) in position and velocity. 
+
+The rotations algorithm is:
+
+- Algorithm for numerical integration of the rigid-body equations of motion, Igor P. Omelyan, 1998
+
+This algortihm is O(3) in orientation and angular velocity and uses quaternions. Similar to LeapFrog.
 """
 function time_step(particles::StructVector{<:AbstractParticle}, 
     conf::Config, 
@@ -98,21 +137,18 @@ function time_step(particles::StructVector{<:AbstractParticle},
     beam_bonds::ExtendableSparseMatrix{Int64, Int64},
     beams::StructVector{Beam})
 
-    # Update Position. Move_r, Move_q, Move_w, and Move_v are defined in Particle.jl.
-    for i in eachindex(particles)
-        @inbounds particles.w[i] = Move_w(particles.w[i],particles.τ[i],particles.I[i],conf.dt,0.5)
-        @inbounds particles.v[i] = Move_v(particles.v[i],particles.a[i],conf.dt,0.5)
-    end
-
     #Calculate_Forces is defined in Forces.jl
     Calculate_Forces(particles,neighborlist,conf,cundall_particles,cundall_walls,beam_bonds,beams)
 
+    # Update Position and Velocity. Move_r, Move_q, Move_w, and Move_v are defined in Particle.jl.
     for i in eachindex(particles)
-        @inbounds particles.q[i] = Move_q(particles.q[i],particles.w[i],conf.dt)
+        @inbounds particles.w[i] = Move_w(particles.w[i],particles.τ[i],particles.I[i],conf.dt)
+        @inbounds particles.v[i] = Move_v(particles.v[i],particles.a[i],conf.dt)
+        
         @inbounds particles.r[i] = Move_r(particles.r[i],particles.v[i],conf.dt)
-        @inbounds particles.w[i] = Move_w(particles.w[i],particles.τ[i],particles.I[i],conf.dt,0.5)
-        @inbounds particles.v[i] = Move_v(particles.v[i],particles.a[i],conf.dt,0.5)
+        @inbounds particles.q[i] = Move_q(particles.q[i],particles.w[i],conf.dt)
     end
+
     return nothing
 end
 
