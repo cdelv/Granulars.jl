@@ -44,7 +44,6 @@ DUDAS:
 # Delete old data files
 # Check if directory exists
 
-# 4. Implement BeamForces
 # 5. Implement MultiSpheres and sphere fitting
 # - https://jekel.me/2015/Least-Squares-Sphere-Fit/
 # - https://stackoverflow.com/questions/70187153/how-can-i-fit-a-sphere-to-a-set-of-3d-points-with-least-squares-method

@@ -101,7 +101,7 @@ function time_step_start(particles::StructVector{<:AbstractParticle},
     beam_bonds::ExtendableSparseMatrix{Int64, Int64},
     beams::StructVector{Beam})
     
-    #Calculate_Forces is defined in Forces.jl
+    # Calculate_Forces is defined in Forces.jl
     Calculate_Forces(particles,neighborlist,conf,cundall_particles,cundall_walls,beam_bonds,beams)
 
     # Initialize Velocity. Move_w, and Move_v are defined in Particle.jl.

@@ -63,8 +63,6 @@ Convenience constructor for Config. It will error if g and Wall have different s
 - E: Young Modulus.
 - G: Shear Modulus. 
 
-FIX DOCS
-
 Does allocations!!!
 """
 function Config(tf::Real, dt::Real; walls::Vector{Wall}=Wall[], 

@@ -35,7 +35,7 @@ For a sphere this is overkill but for the multispheres will be usefull.
 - p: particle to use in the calculations.
 - num: number of samples for the integral. 
 
-PUT THE EXACT INERTIA WITH WHEN THE MULTISPHERE IS DONE
+PUT THE EXACT INERTIA WHEN THE MULTISPHERE IS DONE
 
 https://ocw.mit.edu/courses/16-07-dynamics-fall-2009/dd277ec654440f4c2b5b07d6c286c3fd_MIT16_07F09_Lec26.pdf
 """
@@ -68,12 +68,14 @@ Sets the inertia tensor and orientation of a particle.
 - num: number of samples for the integral. 
 
 DOES ALLOCATIONS!
+
+CHECK EIGENVECS
 """
 function Set_Inertia(p::Particle, num::Int64=50000)::Particle
     Inertia::Matrix{Float64} = Compute_Inertia_Tensor(p::Particle, num)
     II::SVector{3, Float64} = SVector{3, Float64}(abs.(eigvals(Inertia))) # Principal axis inertia tensor (diagonal M).
     index::SVector{3, Int64} = sortperm(II, rev=true) # convention: biggest value in x, smallest in z.
-    Axis::SMatrix{3,3, Float64} = SMatrix{3,3, Float64}(abs.(eigvecs(Inertia)[index,:]))
+    Axis::SMatrix{3,3, Float64} = SMatrix{3,3, Float64}(eigvecs(Inertia)[index,:])
     p = Set_I(p,II[index]) # sets the inertia in the principal axys
     p = Set_q(p,dcm_to_quat(DCM(transpose(Axis)))) # set the orientation of principal axis
     Set_q(p,p.q/norm(p.q)) # normalize the quaternion
@@ -83,6 +85,8 @@ end
 """
 Creates a angle diference vector
 ...
+
+CHECk PERIODIC ISSUES
 """
 function Base.:-(x::EulerAngles{Float64}, y::EulerAngles{Float64})::SVector{3, Float64}
     SVector(x.a1-y.a1, x.a2-y.a2, x.a3-y.a3)
@@ -100,7 +104,7 @@ https://people.eecs.berkeley.edu/~wkahan/MathH110/Cross.pdf (page 15)
 https://www.mathworks.com/matlabcentral/answers/101590-how-can-i-determine-the-angle-between-two-vectors-in-matlab#answer_185622
 """
 function angle(v::SVector{3, Float64},w::SVector{3, Float64})::Float64
-    a::Float64 = atan(norm(cross(v,w)),dot(v,w))
+    atan(norm(cross(v,w)),dot(v,w))
 end
 
 

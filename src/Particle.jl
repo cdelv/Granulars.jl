@@ -103,11 +103,8 @@ end
 METHODS FOR MD
 =# 
 """
-For Newton's equations of motion integration, I use PEFRL:
-
-- Optimized Forest–Ruth- and Suzuki-like algorithms for integration of motion in many-body systems, I.P. Omelyan, I.M. Mryglodab and R. Folk, 2002
-
-Most methods like Leapfrog, Verlet, Forest-Ruth, etc. work similarly. These methods allow 
+For Newton's equations of motion integration.
+Most methods like Leapfrog, Verlet, Forest-Ruth, etc. work similarly. This method allows 
 changing the integration algorithm quickly.
 - r: Position vector.
 - v: Velocity vector.
@@ -172,7 +169,7 @@ end
 #=
 SET METHODS
 =#
-function Set_r(p::Particle, r::SVector{3, Float64})::Particle # Convert svector, acept normal vector
+function Set_r(p::Particle, r::SVector{3, Float64})::Particle
     return Particle(r,p.v,p.a,p.q,p.w,p.τ,p.m,p.I,p.rad)
 end
 function Set_v(p::Particle, v::SVector{3, Float64})::Particle
