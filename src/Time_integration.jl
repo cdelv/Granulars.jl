@@ -73,6 +73,7 @@ function Propagate(data::Vector{Particle}, conf::Config; vis_steps::Int=2000, fi
             Print+=1
         end
     end
+    
     # Return The Final State Of The Simulation. 
     particles
 end

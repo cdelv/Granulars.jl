@@ -25,11 +25,8 @@ function Calculate_Forces(particles::StructVector{Particle},
     # Calculate Forces Between Particles using the neighborlist.
     Force_With_Pairs(particles, conf, neighborlist, cundall_particles,beam_bonds,beams)
 
-    #=particles.τ[1] = SVector(0.0,0.0,0.0)
-    particles.a[1] = SVector(0.0,0.0,0.0)
-
-    particles.τ[100] = SVector(0.0,0.0,0.0)
-    particles.a[100] = SVector(0.0,0.0,0.0)=#
+    #particles.a[1] = 0*particles.a[1]
+    #particles.τ[1] = 0*particles.τ[1]
 
     return nothing
 end

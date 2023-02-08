@@ -75,21 +75,10 @@ function Set_Inertia(p::Particle, num::Int64=50000)::Particle
     Inertia::Matrix{Float64} = Compute_Inertia_Tensor(p::Particle, num)
     II::SVector{3, Float64} = SVector{3, Float64}(abs.(eigvals(Inertia))) # Principal axis inertia tensor (diagonal M).
     index::SVector{3, Int64} = sortperm(II, rev=true) # convention: biggest value in x, smallest in z.
-    Axis::SMatrix{3,3, Float64} = SMatrix{3,3, Float64}(eigvecs(Inertia)[index,:])
+    Axis::SMatrix{3,3, Float64} = SMatrix{3,3, Float64}(abs.(eigvecs(Inertia))[index,:]) # REVISAR ESTO
     p = Set_I(p,II[index]) # sets the inertia in the principal axys
     p = Set_q(p,dcm_to_quat(DCM(transpose(Axis)))) # set the orientation of principal axis
     Set_q(p,p.q/norm(p.q)) # normalize the quaternion
-end
-
-
-"""
-Creates a angle diference vector
-...
-
-CHECk PERIODIC ISSUES
-"""
-function Base.:-(x::EulerAngles{Float64}, y::EulerAngles{Float64})::SVector{3, Float64}
-    SVector(x.a1-y.a1, x.a2-y.a2, x.a3-y.a3)
 end
 
 
@@ -126,31 +115,4 @@ Transforms a vector from the body frame to the lab frame.
 function Body_to_lab(v::SVector{3, Float64}, q::Quaternion{Float64})::SVector{3, Float64}
     #vect(q*v*inv(q)) # an other way of doing it
     inv_rotation(quat_to_dcm(q))*v
-end
-
-
-"""
-Transforms a vector from the lab frame to the beam frame.
-The beam frame has its x axis aligned with the vector n = rᵢ - rⱼ of the particles. 
-- n: vector that goes from one particle to the other n = unitary(rᵢ - rⱼ)
-- v: vector to transform.
-"""
-function Lab_to_Beam(n::SVector{3, Float64}, v::SVector{3, Float64})::SVector{3, Float64}
-    ex::SVector{3} = SVector(1.0,0.0,0.0) # x axis
-    Angle::Float64 = angle(ex,n) # rotation angle
-    u::SVector{3} = cross(ex,n)/(sin(Angle)+1e-9) # rotation axis
-    angleaxis_to_dcm(EulerAngleAxis(Angle, u))*v
-end
-
-"""
-Transforms a vector from the beam frame to the lab frame.
-The beam frame has its x axis aligned with the vector n = rᵢ - rⱼ of the particles. 
-- n: vector that goes from one particle to the other n = unitary(rᵢ - rⱼ)
-- v: vector to transform.
-"""
-function Beam_to_Lab(n::SVector{3, Float64}, v::SVector{3, Float64})::SVector{3, Float64}
-    ex::SVector{3} = SVector(1.0,0.0,0.0) # x axis
-    Angle::Float64 = angle(ex,n) # rotation angle
-    u::SVector{3} = cross(ex,n)/(sin(Angle)+1e-9) # rotation axis
-    inv_rotation(angleaxis_to_dcm(EulerAngleAxis(Angle, u)))*v
 end
