@@ -11,8 +11,12 @@ function unitary(v::SVector{3, Float64})::SVector{3, Float64}
     end
 end
 
+"""
+Returns a normalize quaternion. The norm has to be different than 0. 
+- v: vector to normalize.
+"""
 function unitary(q::Quaternion{Float64})::Quaternion{Float64}
-    q/norm(q)
+    return q/norm(q)
 end
 
 """
@@ -43,7 +47,7 @@ PUT THE EXACT INERTIA WHEN THE MULTISPHERE IS DONE
 
 https://ocw.mit.edu/courses/16-07-dynamics-fall-2009/dd277ec654440f4c2b5b07d6c286c3fd_MIT16_07F09_Lec26.pdf
 """
-function Compute_Inertia_Tensor(p::Particle, num::Int64=100000)::Matrix{Float64}
+function Compute_Inertia_Tensor(p::Particle, num::Int64=50000)::Matrix{Float64}
     Ixx::Float64 = 0.0
     Iyy::Float64 = 0.0
     Izz::Float64 = 0.0
@@ -63,6 +67,7 @@ function Compute_Inertia_Tensor(p::Particle, num::Int64=100000)::Matrix{Float64}
         end
     end
     return (p.m/T)*SMatrix{3,3}(Ixx, -Ixy, -Ixz, -Ixy, Iyy, -Ixy, -Ixy, Iyz, Izz)
+    #(2*p.m*p.rad*p.rad/5)*SMatrix{3,3}(1.0I(3))
 end
 
 

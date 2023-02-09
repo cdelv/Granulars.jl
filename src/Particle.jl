@@ -161,7 +161,6 @@ Update orientation according to MD algortihm.
 - cte: Integration algorithm constant. 
 """
 function Move_q(q::Quaternion{Float64}, w::SVector{3, Float64}, dt::Float64)::Quaternion{Float64}
-    #angle_to_quat(0.5, 0, 0, :XYZ) and quat_to_angle(q::Quaternion, :ZYX)
     Q_q_dt::Quaternion{Float64} = dquat(q, w)
     a1::Float64 = 1.0 - dt*dt*dot(w,w)/16
     a2::Float64 = 1.0 + dt*dt*dot(w,w)/16

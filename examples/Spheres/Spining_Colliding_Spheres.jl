@@ -1,4 +1,4 @@
-include("../src/Granulars.jl")
+include("../../src/Granulars.jl")
 
 function main(t)
     # Box dimensions
@@ -24,7 +24,7 @@ function main(t)
 
     walls = [W1,W2,W3,W4,W5,W6]
 
-    conf = Config(100, dt, walls=walls, g=g)
+    conf = Config(100, dt, walls=walls, g=g, gamma=150)
 
     p1 = Particle(r=[3,10,10], v=[5,0,0], w=[0,0,0])
     p2 = Particle(r=[22,10,10], v=[-5,0,0], w=[0,0,5])
@@ -33,4 +33,4 @@ function main(t)
     Propagate([p1,p2], conf, vis_steps=65, file="Paraview/data", save=true)
 end
 
-@time main(20);
+@time main(200*0.02*65);

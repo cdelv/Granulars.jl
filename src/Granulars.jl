@@ -35,19 +35,10 @@ Tests Ideas:
     - T que da vueltas
 """
 
-"""
-DUDAS:
-1. No need to update position and orientation of the beam, k matrix does it all
-2. Very hard oscilations....
-"""
+# Function to fix particles
 
 # Delete old data files
 # Check if directory exists
-
-# 5. Implement MultiSpheres and sphere fitting
-# - https://jekel.me/2015/Least-Squares-Sphere-Fit/
-# - https://stackoverflow.com/questions/70187153/how-can-i-fit-a-sphere-to-a-set-of-3d-points-with-least-squares-method
-# - https://github.com/cserteGT3/RANSAC.jl
 
 # 6. Restart simulation and start from file
 

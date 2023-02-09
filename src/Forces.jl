@@ -5,10 +5,8 @@ Main force calculation routine. It calls all the different force interactions.
 - conf: Simulation configuration, it's a Conf struct, implemented in Configuration.jl. 
 - cundall_particles: Sparse symmetric matrix that stores the Cundall spring distance for particle-particle interactions.
 - cundall_walls: Sparse symmetric matrix that stores the Cundall spring for particle-wall interactions.
-- beam_bonds:
-- beams:
-
-COMPLETE
+- beam_bonds: Sparse symmetric matrix that stores wich beam connects with each particle pair.
+- beams: StructArray of beams between particles.
 """
 function Calculate_Forces(particles::StructVector{Particle}, 
     neighborlist::Vector{Tuple{Int64, Int64, Float64}}, conf::Config,
@@ -25,12 +23,6 @@ function Calculate_Forces(particles::StructVector{Particle},
     # Calculate Forces Between Particles using the neighborlist.
     Force_With_Pairs(particles, conf, neighborlist, cundall_particles,beam_bonds,beams)
 
-    #particles.a[1] = 0*particles.a[1]
-    #particles.τ[1] = 0*particles.τ[1]
-
-    #particles.a[10] = 0*particles.a[10]
-    #particles.τ[10] = 0*particles.τ[10]
-
     return nothing
 end
 
@@ -40,10 +32,8 @@ Calculate the force between pairs of particles using the neighbor list.
 - conf: Simulation configuration, it's a Conf struct, implemented in Configuration.jl.  
 - neighborlist: Neighbor list for particle-to-particle interaction force calculations.
 - cundall: Sparse symmetric matrix that stores the Cundall spring distance for particle-particle interactions.
-- beam_bonds:
-- beams:
-
-COMPLETE
+- beam_bonds: Sparse symmetric matrix that stores wich beam connects with each particle pair.
+- beams: StructArray of beams between particles.
 """
 function Force_With_Pairs(particles::StructVector{Particle}, conf::Config, 
     neighborlist::Vector{Tuple{Int64, Int64, Float64}},
@@ -58,7 +48,7 @@ function Force_With_Pairs(particles::StructVector{Particle}, conf::Config,
 
         # Calculate beam forces.
         if beam_bonds[i,j]!=0
-            Beam_Force(particles, beams, i, j, beam_bonds[i,j], conf)
+            Beam_Force(particles, beams, i, j, beam_bonds[i,j], conf) #Defined in Beams.jl
             continue # No contact forces between beam bonded particles
         end
 

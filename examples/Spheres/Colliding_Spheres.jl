@@ -7,7 +7,8 @@ function main(t)
     Lz = 25
 
     # time step
-    dt = 0.01
+    dt = 0.002
+    g = [0.0,0.0,0.0]
 
     # X coordinate walls
     W1 = Wall([1,0,0],[0,0,0])
@@ -23,11 +24,13 @@ function main(t)
 
     walls = [W1,W2,W3,W4,W5,W6]
 
-    conf = Config(t, dt, walls=walls, gamma=100)
+    conf = Config(100, dt, walls=walls, g=g, gamma=100)
 
-    p = Particle(r=[3,1,10], v=[0,0,0], w=[0,0,-5])
+    p1 = Particle(r=[3,10,10], v=[5,0,0], w=[0,0,0])
+    p2 = Particle(r=[22,10,10], v=[-5,0,0], w=[0,0,0])
 
-    Propagate([p], conf, vis_steps=65, file="Paraview/data", save=true)
+
+    Propagate([p1,p2], conf, vis_steps=65, file="Paraview/data", save=true)
 end
 
-@time main(200*0.01*65);
+@time main(200*0.002*65);

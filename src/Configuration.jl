@@ -68,7 +68,7 @@ Does allocations!!!
 function Config(tf::Real, dt::Real; walls::Vector{Wall}=Wall[], 
     g::Vector{<:Real}=[0,-9.8,0], k::Real=5.0e3, 
     gamma::Real=500, KK::Real=900.0, mu::Real=0.4,
-    G::Real=12000.0, E::Real=8000.0)::Config
+    G::Real=120000.0, E::Real=80000.0)::Config
 
 	Config(convert(Float64,tf), convert(Float64,dt), convert(Float64,k),
         convert(Float64,gamma), convert(SVector{3,Float64}, g), 

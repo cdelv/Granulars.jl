@@ -63,9 +63,6 @@ function Propagate(data::Vector{Particle}, conf::Config; vis_steps::Int=2000, fi
         # Update Cell List.
         update!(system, particles.r)
         list = neighborlist!(system)
-
-        # Check simulation.
-        # Check_Simulation(particles)
         
         # Save Data Every vis_steps.
         if i%vis_steps==0 && save 
