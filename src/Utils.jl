@@ -12,7 +12,7 @@ function unitary(v::SVector{3, Float64})::SVector{3, Float64}
 end
 
 """
-Returns a normalize quaternion. The norm has to be different than 0. 
+Returns a normalize quaternion. The norm has to be different than 0.
 - v: vector to normalize.
 """
 function unitary(q::Quaternion{Float64})::Quaternion{Float64}

@@ -22,20 +22,15 @@ include("Utils.jl")
 
 """
 Tests Ideas:
-    - Maxwell Boltzman (ideal gas 3D)
-    - No Particles outside the box
     - Cambiar constantes de Hertz y damping por lo que es
-    - Normalized quaternions
     - viga cantilever
     - viga de flexion
-    - Oscilación viga empotrada
     - sol analítica trompo
     - Agradecimiento a ricardo
-    - rotar esferas y ver fuerza 0
     - T que da vueltas
 """
 
-# Function to fix particles
+# Fix Triangle_Beam.jl
 
 # Delete old data files
 # Check if directory exists

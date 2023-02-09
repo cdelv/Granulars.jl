@@ -143,14 +143,11 @@ function Beam_Force(particles::StructVector{Particle},
     # Substracting (L,0,0) gets the displacement diference
     Δri = Lab_to_body(particles.r[j]-particles.r[i], qbi) - SVector(beams.L[k], 0.0, 0.0)
     Δrj = Lab_to_body(particles.r[j]-particles.r[i], qbj) - SVector(beams.L[k], 0.0, 0.0)
-
     Δr = 0.5*(Δri+Δrj)
-    #Δr = 0*Δri
 
     # Angle displacement
     Δq = unitary(qbj ∘ inv(qbi))
     Δϕ = quat_to_angle(Δq, :XYZ)     
-    #∇ϕ = EulerAngles(0.0,0.0,0.0,:XYZ)
 
     # Create the 12x12 transformation matrix and calculate forces and torques.
     @inbounds Δs::SVector{12,Float64} = 0.5*SVector(Δr[1], Δr[2], Δr[3], Δϕ.a1, Δϕ.a2, Δϕ.a3, -Δr[1], -Δr[2], -Δr[3], -Δϕ.a1, -Δϕ.a2, -Δϕ.a3)
