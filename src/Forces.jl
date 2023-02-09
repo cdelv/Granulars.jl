@@ -28,6 +28,9 @@ function Calculate_Forces(particles::StructVector{Particle},
     #particles.a[1] = 0*particles.a[1]
     #particles.τ[1] = 0*particles.τ[1]
 
+    #particles.a[10] = 0*particles.a[10]
+    #particles.τ[10] = 0*particles.τ[10]
+
     return nothing
 end
 
@@ -53,12 +56,9 @@ function Force_With_Pairs(particles::StructVector{Particle}, conf::Config,
         @inbounds j::Int64 = max(pair[1],pair[2]) # For symetric acces to the Cundall distance matrix
         @inbounds d::Float64 = pair[3]
 
-        # Normal vector.
-        @inbounds n::SVector{3, Float64} = unitary( particles.r[i] - particles.r[j] ) # The normal goes from j to i.
-
         # Calculate beam forces.
         if beam_bonds[i,j]!=0
-            Beam_Force(particles, beams, i, j, beam_bonds[i,j], -n, conf) # -n because it has to go from i to j
+            Beam_Force(particles, beams, i, j, beam_bonds[i,j], conf)
             continue # No contact forces between beam bonded particles
         end
 
@@ -73,6 +73,9 @@ function Force_With_Pairs(particles::StructVector{Particle}, conf::Config,
             dropzeros!(cundall) # Remove 0 entries from the sparse matrix.
             continue
         end
+
+        # Normal vector.
+        @inbounds n::SVector{3, Float64} = unitary( particles.r[i] - particles.r[j] ) # The normal goes from j to i.
 
         # Relative velocity. Carefull with angular velocity!
         @inbounds Vij::SVector{3, Float64} = (particles.v[i] + cross( Body_to_lab(particles.w[i],particles.q[i]), -particles.rad[i]*n ) 

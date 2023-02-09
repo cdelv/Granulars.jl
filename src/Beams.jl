@@ -38,8 +38,13 @@ https://math.stackexchange.com/questions/1884215/how-to-calculate-relative-pitch
 function Beam(p_i::Particle, p_j::Particle, conf::Config)::Beam
     L::Float64 = norm(p_i.r - p_j.r)
     r::Float64 = sqrt((-L + p_i.rad - p_j.rad)*(-L - p_i.rad + p_j.rad)*(-L + p_i.rad + p_j.rad)*(L + p_i.rad + p_j.rad))/(2*L)
-    q0 = p_i.q * (-conj(Beam_Orientation(unitary(p_j.r - p_i.r)))) # goes from i to j
-    qij0 = p_j.q * (-conj(p_i.q))
+    
+    # Diference between the particle and beam frame. They are fixed and move the same amount.
+    q0::Quaternion{Float64} = unitary(Beam_Orientation(unitary(p_j.r - p_i.r)) ∘ inv(p_i.q))
+
+    # Diference between the frames of the two particles.
+    qij0::Quaternion{Float64} = unitary(p_j.q ∘ inv(p_i.q))
+
     Beam(conf.E, conf.G, π*r*r, L, q0, qij0)
 end
 
@@ -112,14 +117,6 @@ function K_beam(A::Float64, L::Float64, E::Float64, G::Float64)::SMatrix{12, 12,
     )*(E/L^3)
 end
 
-function sparcify(v::Float64)::Float64
-    if abs(v)<1e-11
-        return 0.0
-    else 
-        return v
-    end
-end
-
 """
 DESCRIPTION:
 
@@ -134,28 +131,47 @@ quaternion reference frame difference
 https://math.stackexchange.com/questions/1884215/how-to-calculate-relative-pitch-roll-and-yaw-given-absolutes
 """
 function Beam_Force(particles::StructVector{Particle}, 
-    beams::StructVector{Beam}, i::Int64, j::Int64, k::Int64, 
-    n::SVector{3,Float64}, conf::Config)
+    beams::StructVector{Beam}, i::Int64, j::Int64, k::Int64, conf::Config)
 
     # Beam Orientation 
-    qb = -conj(beams.q0[k]) * particles.q[i]
+    qb = unitary(beams.q0[k] ∘ particles.q[i])
 
     # Vector that goes from the i particle to the j particle in the Beam frame
     # Substracting (L,0,0) gets the displacement diference
     Δr = Lab_to_body(particles.r[j]-particles.r[i], qb) - SVector(beams.L[k], 0.0, 0.0)
+    #Δr *= 0
 
     # Angle displacement
-    Δq = particles.q[j] * (-conj(particles.q[i]))
-    Δϕ = quat_to_angle(-conj(beams.q0ij[k]) * Δq, :XYZ)
-    #println(quat_to_angle(beams.q0ij[k], :XYZ))
-    #println(quat_to_angle(Δq, :XYZ))
-    #println(Δϕ)
-    #println("")
+    # HOW TO SUBSTRACT THE INITIAL ORIENTATION DIFFERENCE?
+    Δϕ = quat_to_angle(particles.q[j] ∘ inv(particles.q[i]), :XYZ) #∘ inv(beams.q0ij[k])
+    #∇ϕ = EulerAngles(0.0,0.0,0.0,:XYZ)
 
     # Create the 12x12 transformation matrix and calculate forces and torques.
-    @inbounds Δs::SVector{12,Float64} = 0.5*SVector(Δr[1], Δr[2], Δr[3], Δϕ.a1, Δϕ.a2, Δϕ.a3, -Δr[1], -Δr[2], -Δr[3], -Δϕ.a1, -Δϕ.a2, -Δϕ.a3)
-    Δs = sparcify.(Δs)
-    F::SVector{12,Float64} = K_beam(beams.A[k], beams.L[k], conf.E, conf.G)*Δs #cte k matrix, maybe compute once
+    #@inbounds Δs::SVector{12,Float64} = 0.5*SVector(Δr[1], Δr[2], Δr[3], Δϕ.a1, Δϕ.a2, Δϕ.a3, -Δr[1], -Δr[2], -Δr[3], -Δϕ.a1, -Δϕ.a2, -Δϕ.a3)
+    #F::SVector{12,Float64} = K_beam(beams.A[k], beams.L[k], conf.E, conf.G)*Δs #cte k matrix, maybe compute once
+    
+    A = beams.A[k]
+    L = beams.L[k]
+    E = conf.E
+    G = conf.G
+    J = A*A/(2*π)
+    Iy = J/2
+    Iz = Iy
+
+    F = (E/L^3)*SVector(
+        A*Δr[1]*L*L,
+        12*Δr[2]*Iz,
+        12*Δr[3]*Iy,
+        Δϕ.a1*G*J*L*L/E,
+        Δϕ.a2*Iy*L*L - 6*Δr[3]*Iy*L,
+        Δϕ.a3*Iz*L*L + 6*Δr[2]*Iz*L,
+        -A*Δr[1]*L*L,
+        -12*Δr[2]*Iz,
+        -12*Δr[3]*Iy,
+        -Δϕ.a1*G*J*L*L/E,
+        -Δϕ.a2*Iy*L*L - 6*Δr[3]*Iy*L,
+        -Δϕ.a3*Iz*L*L + 6*Δr[2]*Iz*L,
+        )
 
     # Add forces and torques to the particles.
     @inbounds particles.a[i] += Body_to_lab(SVector(F[1], F[2], F[3]), qb)/particles.m[i] 
@@ -165,12 +181,14 @@ function Beam_Force(particles::StructVector{Particle},
     @inbounds particles.τ[j] += Lab_to_body(Body_to_lab(SVector(F[10],F[11],F[12]), qb), particles.q[j])
 
     #=
-    γ = 0.1
+    γ = 0.5
     @inbounds particles.a[i] += -γ*particles.v[i]
     @inbounds particles.τ[i] += -γ*particles.w[i]
 
     @inbounds particles.a[j] += -γ*particles.v[j]
     @inbounds particles.τ[j] += -γ*particles.w[j]
     =#
+
+    
     return nothing
 end

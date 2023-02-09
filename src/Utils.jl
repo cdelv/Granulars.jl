@@ -11,6 +11,10 @@ function unitary(v::SVector{3, Float64})::SVector{3, Float64}
     end
 end
 
+function unitary(q::Quaternion{Float64})::Quaternion{Float64}
+    q/norm(q)
+end
+
 """
 Checks that the simulation is working fine.
 It makes sure that rad, m, and Inertia tensor of particles is not 0.
@@ -103,8 +107,8 @@ Transforms a vector from the lab frame to the body frame.
 - q: quaternion with the orientation of the body frame.
 """
 function Lab_to_body(v::SVector{3, Float64}, q::Quaternion{Float64})::SVector{3, Float64}
-    #vect(inv(q)*v*q) # an other way of doing it
-    quat_to_dcm(q)*v
+    vect(inv(q)*v*q) # an other way of doing it
+    #quat_to_dcm(q)*v
 end
 
 """
@@ -113,6 +117,6 @@ Transforms a vector from the body frame to the lab frame.
 - q: quaternion with the orientation of the body frame.
 """
 function Body_to_lab(v::SVector{3, Float64}, q::Quaternion{Float64})::SVector{3, Float64}
-    #vect(q*v*inv(q)) # an other way of doing it
-    inv_rotation(quat_to_dcm(q))*v
+    vect(q*v*inv(q)) # an other way of doing it
+    #inv_rotation(quat_to_dcm(q))*v
 end
