@@ -61,7 +61,8 @@ function Particle(r::Vector{<:Real}, v::Vector{<:Real}, w::Vector{<:Real}, m::Re
         Float64(m),
         ones(SVector{3}),
         Float64(rad))
-    Set_Inertia(p) # Adds the innertia tensor and particle orientation. Defined in Utils.jl
+    P = Set_Inertia(p) # Adds the innertia tensor and particle orientation. Defined in Utils.jl
+    Set_w(p,Lab_to_body(w,p.q))
 end
 
 """
@@ -96,7 +97,8 @@ function Particle(;r::Vector{<:Real}=[0.0,0.0,0.0], v::Vector{<:Real}=[0.0,0.0,0
         Float64(m),
         SVector{3,Float64}(I),
         Float64(rad))
-    Set_Inertia(p) # Adds the innertia tensor and particle orientation. Defined in Utils.jl
+    P = Set_Inertia(p) # Adds the innertia tensor and particle orientation. Defined in Utils.jl
+    Set_w(p,Lab_to_body(p.w,p.q))
 end
 
 #=
@@ -160,10 +162,10 @@ Update orientation according to MD algortihm.
 """
 function Move_q(q::Quaternion{Float64}, w::SVector{3, Float64}, dt::Float64)::Quaternion{Float64}
     #angle_to_quat(0.5, 0, 0, :XYZ) and quat_to_angle(q::Quaternion, :ZYX)
-    Q_q_dt::Quaternion{Float64} = dquat(q, w)*dt
+    Q_q_dt::Quaternion{Float64} = dquat(q, w)
     a1::Float64 = 1.0 - dt*dt*dot(w,w)/16
     a2::Float64 = 1.0 + dt*dt*dot(w,w)/16
-    return (a1*q + Q_q_dt)/a2
+    return unitary((a1*q + Q_q_dt*dt)/a2)
 end
 
 #=

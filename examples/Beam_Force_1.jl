@@ -33,30 +33,22 @@ function main(t)
     walls = [W1,W2,W3,W4,W5,W6]
     
     # Create config
-    conf = Config(t, dt, walls=walls, g=g, gamma=5)
+    conf = Config(t, dt, walls=walls, g=g, gamma=100)
 
     aos = Particle[]
 
     for i in 1:nx
-        push!(aos, Particle(r=[5+i*dx, Ly/2, Lz/2], v=[0.0,0.0,0.0], w=[0.0,0.0,0.0], rad=0.8))
+        p = Particle(r=[5+i*dx, Ly/2, Lz/2], v=[0.0,0.0,0.0], w=[0.0,0.0,0.0], rad=0.8)
+        p = Set_q(p,Quaternion(1.0I))
+        push!(aos, p)
     end
 
-    p1 = Particle(r=[12,Ly/2,Lz/2], v=[0.0,0.0,0], w=[1,0,0], rad=2.0)
-    p2 = Particle(r=[16-1,Ly/2,Lz/2], v=[0.0,0.0,0], w=[1,0,0], rad=2.0)
-    
-    p3 = Particle(r=[20-0.6,Ly/2,Lz/2], v=[0.0,-0.0,0], w=[0,0,0], rad=2.0)
-
-    #p1 = Set_q(p1,Quaternion(1.0I))
-    #p2 = Set_q(p2,Quaternion(1.0I))
-    #p3 = Set_q(p3,Quaternion(1.0I))
-    
-    #=
-    p1 = Set_I(p1,2*(2/5)*SVector(1.0,1.0,1.0))
-    p2 = Set_I(p2,2*(2/5)*SVector(1.0,1.0,1.0))
-    =#
+    p1 = Particle(r=[12   ,Ly/2    ,Lz/2], v=[0.0,0.0,0], w=[0,0,0], rad=2.0)
+    p2 = Particle(r=[15.5 ,Ly/2+1    ,Lz/2], v=[0.0,0.0,0], w=[0,0,0], rad=2.0)
+    p3 = Particle(r=[19   ,Ly/2+2  ,Lz/2], v=[0.0,0.0,0], w=[0,0,0], rad=2.0)
     
     # Run the simulation
-    Propagate([p1,p2], conf, vis_steps=300, file="Paraview/data", save=true, beam_forces=true)
+    Propagate([p1,p2,p3], conf, vis_steps=500, file="Paraview/data", save=true, beam_forces=true)
 end
 
-@time main(200*300*0.0001);
+@time main(200*500*0.0001);

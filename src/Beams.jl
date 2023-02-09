@@ -19,8 +19,8 @@ struct Beam
     A::Float64
     L::Float64
 
-    q0::Quaternion{Float64}
-    q0ij::Quaternion{Float64}
+    Δq0i::Quaternion{Float64}
+    Δq0j::Quaternion{Float64}
 end
 
 """
@@ -40,20 +40,20 @@ function Beam(p_i::Particle, p_j::Particle, conf::Config)::Beam
     r::Float64 = sqrt((-L + p_i.rad - p_j.rad)*(-L - p_i.rad + p_j.rad)*(-L + p_i.rad + p_j.rad)*(L + p_i.rad + p_j.rad))/(2*L)
     
     # Diference between the particle and beam frame. They are fixed and move the same amount.
-    q0::Quaternion{Float64} = unitary(Beam_Orientation(unitary(p_j.r - p_i.r)) ∘ inv(p_i.q))
+    q0i::Quaternion{Float64} = Beam_Orientation(unitary(p_j.r - p_i.r)) ∘ inv(p_i.q)
 
-    # Diference between the frames of the two particles.
-    qij0::Quaternion{Float64} = unitary(p_j.q ∘ inv(p_i.q))
+    # Diference between the particle and beam frame. They are fixed and move the same amount.
+    q0j::Quaternion{Float64} = Beam_Orientation(unitary(p_j.r - p_i.r)) ∘ inv(p_j.q)
 
-    Beam(conf.E, conf.G, π*r*r, L, q0, qij0)
+    Beam(conf.E, conf.G, π*r*r, L, unitary(q0i), unitary(q0j))
 end
 
 
 function Beam_Orientation(n::SVector{3, Float64})::Quaternion{Float64}
     ex::SVector{3} = SVector(1.0,0.0,0.0) # x axis
     Angle::Float64 = angle(ex,n) # rotation angle
-    u::SVector{3} = cross(ex,n)/(sin(Angle)+1e-9) # rotation axis
-    angleaxis_to_quat(EulerAngleAxis(Angle, u))
+    u::SVector{3} = cross(ex,n)/(sin(Angle)+1e-12) # rotation axis
+    unitary(angleaxis_to_quat(EulerAngleAxis(Angle, u)))
 end
 
 """
@@ -133,23 +133,30 @@ https://math.stackexchange.com/questions/1884215/how-to-calculate-relative-pitch
 function Beam_Force(particles::StructVector{Particle}, 
     beams::StructVector{Beam}, i::Int64, j::Int64, k::Int64, conf::Config)
 
-    # Beam Orientation 
-    qb = unitary(beams.q0[k] ∘ particles.q[i])
+    # Beam Orientation in the i particle
+    qbi = unitary(beams.Δq0i[k] ∘ particles.q[i])
+
+    # Beam Orientation in the j particle
+    qbj = unitary(beams.Δq0j[k] ∘ particles.q[j])
 
     # Vector that goes from the i particle to the j particle in the Beam frame
     # Substracting (L,0,0) gets the displacement diference
-    Δr = Lab_to_body(particles.r[j]-particles.r[i], qb) - SVector(beams.L[k], 0.0, 0.0)
-    #Δr *= 0
+    Δri = Lab_to_body(particles.r[j]-particles.r[i], qbi) - SVector(beams.L[k], 0.0, 0.0)
+    Δrj = Lab_to_body(particles.r[j]-particles.r[i], qbj) - SVector(beams.L[k], 0.0, 0.0)
+
+    Δr = 0.5*(Δri+Δrj)
+    #Δr = 0*Δri
 
     # Angle displacement
-    # HOW TO SUBSTRACT THE INITIAL ORIENTATION DIFFERENCE?
-    Δϕ = quat_to_angle(particles.q[j] ∘ inv(particles.q[i]), :XYZ) #∘ inv(beams.q0ij[k])
+    Δq = unitary(qbj ∘ inv(qbi))
+    Δϕ = quat_to_angle(Δq, :XYZ)     
     #∇ϕ = EulerAngles(0.0,0.0,0.0,:XYZ)
 
     # Create the 12x12 transformation matrix and calculate forces and torques.
-    #@inbounds Δs::SVector{12,Float64} = 0.5*SVector(Δr[1], Δr[2], Δr[3], Δϕ.a1, Δϕ.a2, Δϕ.a3, -Δr[1], -Δr[2], -Δr[3], -Δϕ.a1, -Δϕ.a2, -Δϕ.a3)
-    #F::SVector{12,Float64} = K_beam(beams.A[k], beams.L[k], conf.E, conf.G)*Δs #cte k matrix, maybe compute once
+    @inbounds Δs::SVector{12,Float64} = 0.5*SVector(Δr[1], Δr[2], Δr[3], Δϕ.a1, Δϕ.a2, Δϕ.a3, -Δr[1], -Δr[2], -Δr[3], -Δϕ.a1, -Δϕ.a2, -Δϕ.a3)
+    F::SVector{12,Float64} = K_beam(beams.A[k], beams.L[k], conf.E, conf.G)*Δs #cte k matrix, maybe compute once
     
+    """
     A = beams.A[k]
     L = beams.L[k]
     E = conf.E
@@ -172,13 +179,14 @@ function Beam_Force(particles::StructVector{Particle},
         -Δϕ.a2*Iy*L*L - 6*Δr[3]*Iy*L,
         -Δϕ.a3*Iz*L*L + 6*Δr[2]*Iz*L,
         )
+    """
 
     # Add forces and torques to the particles.
-    @inbounds particles.a[i] += Body_to_lab(SVector(F[1], F[2], F[3]), qb)/particles.m[i] 
-    @inbounds particles.τ[i] += Lab_to_body(Body_to_lab(SVector(F[4], F[5], F[6]), qb), particles.q[i])
+    @inbounds particles.a[i] += Body_to_lab(SVector(F[1], F[2], F[3]), qbi)/particles.m[i] 
+    @inbounds particles.τ[i] += Lab_to_body(Body_to_lab(SVector(F[4], F[5], F[6]), qbi), particles.q[i])
 
-    @inbounds particles.a[j] += Body_to_lab(SVector(F[7], F[8], F[9]), qb)/particles.m[j]
-    @inbounds particles.τ[j] += Lab_to_body(Body_to_lab(SVector(F[10],F[11],F[12]), qb), particles.q[j])
+    @inbounds particles.a[j] += Body_to_lab(SVector(F[7], F[8], F[9]), qbi)/particles.m[j]
+    @inbounds particles.τ[j] += Lab_to_body(Body_to_lab(SVector(F[10],F[11],F[12]), qbi), particles.q[j])
 
     #=
     γ = 0.5
