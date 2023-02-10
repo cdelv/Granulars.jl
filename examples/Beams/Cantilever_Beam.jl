@@ -2,7 +2,7 @@ include("../../src/Granulars.jl")
 
 function main(t)
     # Simulation parameters
-    dt = 0.00001
+    dt = 0.0001
     g = [0.0,-10.0,0.0]
     
     # Number of particles
@@ -14,7 +14,8 @@ function main(t)
     dx = 2*rad - 0.6*rad
     
     # Create config
-    conf = Config(t, dt, g=g, E=800000, G=1200000)
+    walls = walls = Create_Box(25,25,25)
+    conf = Config(t, dt, g=g, walls=walls, E=800000, G=1200000)
     particles = Particle[]
 
     for i in 1:n
@@ -23,8 +24,8 @@ function main(t)
     end
     
     # Run the simulation
-    Propagate(particles, conf, vis_steps=5000, file="Paraview/data", 
+    Propagate(particles, conf, vis_steps=500, file="Paraview/data", 
         save=true, beam_forces=true, fixed_spheres=[1], static=true)
 end
 
-@time main(200*5000*0.00001);
+@time main(200*500*0.0001);

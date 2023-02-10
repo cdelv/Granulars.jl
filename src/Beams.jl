@@ -66,11 +66,12 @@ function Create_beams(particles::StructVector{Particle},
     beam_bonds::ExtendableSparseMatrix{Int64, Int64},
     beams::Vector{Beam})
 
+    k::Int64 = 1
+
     for pair in neighborlist
         @inbounds i::Int64 = min(pair[1], pair[2]) # For symetric acces to the beam_bonds matrix
         @inbounds j::Int64 = max(pair[1], pair[2]) # For symetric acces to the beam_bonds matrix
         @inbounds d::Float64 = pair[3]
-        k::Int64 = 1
 
         # Interpenetration distance.
         @inbounds s::Float64 = particles.rad[i] + particles.rad[j] - d
@@ -99,7 +100,7 @@ https://math.stackexchange.com/questions/1884215/how-to-calculate-relative-pitch
 """
 function Beam_Force(particles::StructVector{Particle}, 
     beams::StructVector{Beam}, i::Int64, j::Int64, k::Int64)
-
+    
     # Beam Orientation in the i particle
     @inbounds qbi::Quaternion{Float64} = unitary(beams.Δq0i[k] ∘ particles.q[i])
 
@@ -111,10 +112,12 @@ function Beam_Force(particles::StructVector{Particle},
     @inbounds Δri::SVector{3, Float64} = Lab_to_body(particles.r[j]-particles.r[i], qbi) - SVector(beams.L[k], 0.0, 0.0)
     @inbounds Δrj::SVector{3, Float64} = Lab_to_body(particles.r[j]-particles.r[i], qbj) - SVector(beams.L[k], 0.0, 0.0)
     Δr::SVector{3, Float64} = 0.5*(Δri+Δrj)
+    #Δr::SVector{3, Float64} = 0*Δri
 
     # Angle displacement
     Δq::Quaternion{Float64} = unitary(qbj ∘ inv(qbi))
-    Δϕ::EulerAngles{Float64} = quat_to_angle(Δq, :XYZ)     
+    Δϕ::EulerAngles{Float64} = quat_to_angle(Δq, :XYZ)  
+    #Δϕ::EulerAngles{Float64} = EulerAngles(0.0,0.0,0.0, :XYZ)     
 
     # Create the 12x12 transformation matrix and calculate forces and torques.
     #@inbounds Δs::SVector{12,Float64} = 0.5*SVector(Δr[1], Δr[2], Δr[3], Δϕ.a1, Δϕ.a2, Δϕ.a3, -Δr[1], -Δr[2], -Δr[3], -Δϕ.a1, -Δϕ.a2, -Δϕ.a3)
