@@ -1,4 +1,5 @@
 include("../../src/Granulars.jl")
+using Distributions
 
 function main(t)
     # Simulation parameters
@@ -30,7 +31,7 @@ function main(t)
     for i in 1:nx
         for j in 1:ny
             for k in 1:nz 
-                v = 10.0*unitary(SVector{3}(rand(3)))
+                v = 2.0*unitary(SVector{3}(rand(Uniform(-1, 1), 3)))
                 push!(particles, Particle(r=[i*dx, j*dy, k*dz], v=[v[1],v[2],v[3]]))
             end
         end
