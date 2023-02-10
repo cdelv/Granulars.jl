@@ -1,4 +1,4 @@
-include("../src/Granulars.jl")
+include("../../src/Granulars.jl")
 
 function main(t)
     # Simulation parameters
@@ -21,27 +21,16 @@ function main(t)
     dy = Ly/(ny+1)
     dz = Lz/(nz+1)
     
-    # X coordinate walls
-    W1 = Wall([1,0,0],[0,0,0])
-    W2 = Wall([-1,0,0],[Lx,0,0])
-    
-    # Y coordinate walls
-    W3 = Wall([0,1,0],[0,0,0])
-    W4 = Wall([0,-1,0],[0,Ly,0])
-    
-    # Z coordinate walls
-    W5 = Wall([0,0,1],[0,0,0])
-    W6 = Wall([0,0,-1],[0,0,Lz])
-    
-    walls = [W1,W2,W3,W4,W5,W6]
+    # Simulation walls
+    walls = Create_Box(Lx,Ly,Lz)
 
-    aos = Particle[]
+    particles = Particle[]
     
     # Start particles in organized way
     for i in 1:nx
         for j in 1:ny
             for k in 1:nz 
-                push!(aos, Particle([i*dx, j*dy, k*dz], rand(3)))
+                push!(particles, Particle([i*dx, j*dy, k*dz], rand(3)))
             end
         end
     end
@@ -50,7 +39,7 @@ function main(t)
     conf = Config(t, dt, walls=walls, g=g, gamma=5)
     
     # Run the simulation
-    Propagate(aos, conf, vis_steps=60, file="Paraview/data", save=true)
+    Propagate(particles, conf, vis_steps=60, file="Paraview/data", save=true)
 end
 
 @time main(200*60*0.001);

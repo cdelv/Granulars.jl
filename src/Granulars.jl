@@ -23,11 +23,8 @@ include("Utils.jl")
 """
 Tests Ideas:
     - Cambiar constantes de Hertz y damping por lo que es
-    - viga cantilever
-    - viga de flexion
     - sol analítica trompo
     - Agradecimiento a ricardo
-    - T que da vueltas
 """
 
 # Fix Triangle_Beam.jl

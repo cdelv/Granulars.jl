@@ -48,7 +48,7 @@ function Force_With_Pairs(particles::StructVector{Particle}, conf::Config,
 
         # Calculate beam forces.
         if beam_bonds[i,j]!=0
-            Beam_Force(particles, beams, i, j, beam_bonds[i,j], conf) #Defined in Beams.jl
+            Beam_Force(particles, beams, i, j, beam_bonds[i,j]) #Defined in Beams.jl
             continue # No contact forces between beam bonded particles
         end
 

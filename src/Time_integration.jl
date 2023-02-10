@@ -5,10 +5,10 @@ This function does all the work. It's the core of the simulation.
 - vis_steps: How often to save a frame.
 - file: Where to save the simulation information.
 - save: Whether or not to save simulation data. 
-- rot_seq: 
-- beam_forces:
-- fixed_spheres:
-- static:
+- rot_seq: Rotation sequence to use for the angles.
+- beam_forces: Whether or not to create beams between overlaping particles at the begining. 
+- fixed_spheres: List of indices of the spheres that wont move. They can rotate. 
+- static: Make fixed spheres unable to rotate. 
 """
 function Propagate(data::Vector{Particle}, 
     conf::Config; 
@@ -18,7 +18,7 @@ function Propagate(data::Vector{Particle},
     rot_seq::Symbol=:XYZ, 
     beam_forces::Bool=false,
     fixed_spheres::Vector{Int64}=Int64[],
-    static::Bool=false)
+    static::Bool=false)::StructVector{<:AbstractParticle}
     
     # Time and Printing Variables.
     t::Float64 = 0.0
@@ -83,7 +83,7 @@ function Propagate(data::Vector{Particle},
     end
 
     # Return The Final State Of The Simulation. 
-    particles
+    return particles
 end
 
 """

@@ -13,28 +13,10 @@ end
 
 """
 Returns a normalize quaternion. The norm has to be different than 0.
-- v: vector to normalize.
+- q: quaternion to normalize.
 """
 function unitary(q::Quaternion{Float64})::Quaternion{Float64}
     return q/norm(q)
-end
-
-"""
-Checks that the simulation is working fine.
-It makes sure that rad, m, and Inertia tensor of particles is not 0.
-Also, checks that the quaternion is normalized. If not, it normalizes it. 
-- particles: StructArray of particles.
-"""
-function Check_Simulation(particles::StructVector{<:AbstractParticle})
-    for i in eachindex(particles)
-        @assert all(>(0.0), particles.I[i])
-        @assert particles.m[i] > 0.0
-        @assert particles.rad[i] > 0.0
-        if !(norm(particles.q[i]) ≈ 1)
-            println("Normalizing quaternion of particle ", i)
-            particles.q[i] = particles.q[i]/norm(particles.q[i])
-        end
-    end
 end
 
 """
@@ -124,4 +106,62 @@ Transforms a vector from the body frame to the lab frame.
 function Body_to_lab(v::SVector{3, Float64}, q::Quaternion{Float64})::SVector{3, Float64}
     vect(q*v*inv(q)) # an other way of doing it
     #inv_rotation(quat_to_dcm(q))*v
+end
+
+
+"""
+Compute the time-derivative of the quaternion `qba` that rotates a reference
+frame `a` into alignment to the reference frame `b` in which the angular
+velocity of `b` with respect to `a`, and represented in `b`, is `wba_b`.
+
+This is a re rwitte from ReferenceFrameRotations.jl wich makes the computation faster.
+The original function has some stuff I dont need. 
+"""
+function dquat(qba::Quaternion{Float64}, w::SVector{3, Float64})::Quaternion{Float64}
+    # Return the time-derivative.
+    #         1         x
+    #   dq = --- (wba_b) . q
+    #         2
+    @inbounds Quaternion(
+                          - w[1] / 2 * qba.q1 - w[2] / 2 * qba.q2 - w[3] / 2 * qba.q3,
+        w[1] / 2 * qba.q0                     + w[3] / 2 * qba.q2 - w[2] / 2 * qba.q3,
+        w[2] / 2 * qba.q0 - w[3] / 2 * qba.q1                     + w[1] / 2 * qba.q3,
+        w[3] / 2 * qba.q0 + w[2] / 2 * qba.q1 - w[1] / 2 * qba.q2
+    )
+end
+
+"""
+Calculates the beam orientation. The beam director vector must be aligned with the x axis 
+in the beam reference frame. 
+- n: Beam director vector. 
+"""
+function Beam_Orientation(n::SVector{3, Float64})::Quaternion{Float64}
+    ex::SVector{3} = SVector(1.0,0.0,0.0) # x axis
+    Angle::Float64 = angle(ex,n) # rotation angle
+    u::SVector{3} = cross(ex,n)/(sin(Angle)+1e-12) # rotation axis
+    unitary(angleaxis_to_quat(EulerAngleAxis(Angle, u)))
+end
+
+
+"""
+Creates the walls needed for a box with a corner in (0,0,0).
+"""
+function Create_Box(lx::Real, ly::Real, lz::Real)::Vector{Wall}
+    Lx::Float64 = Float64(lx)
+    Ly::Float64 = Float64(ly)
+    Lz::Float64 = Float64(lz)
+
+    # X coordinate walls
+    W1::Wall = Wall(SVector(1.0,0.0,0.0), SVector(0.0,0.0,0.0))
+    W2::Wall = Wall(SVector(-1.0,0.0,0.0),SVector(Lx,0.0,0.0))
+    
+    # Y coordinate walls
+    W3::Wall = Wall(SVector(0.0,1.0,0.0), SVector(0.0,0.0,0.0))
+    W4::Wall = Wall(SVector(0.0,-1.0,0.0),SVector(0.0,Ly,0.0))
+    
+    # Z coordinate walls
+    W5::Wall = Wall(SVector(0.0,0.0,1.0), SVector(0.0,0.0,0.0))
+    W6::Wall = Wall(SVector(0.0,0.0,-1.0),SVector(0.0,0.0,Lz))
+    
+    [W1,W2,W3,W4,W5,W6]
 end
