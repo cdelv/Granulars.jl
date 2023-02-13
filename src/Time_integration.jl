@@ -63,13 +63,13 @@ function Propagate(data::Vector{Particle},
     end
 
     # Needed for the LeapFrog Algorithm
-    time_step_start(particles,conf,list,cundall_particles,cundall_walls,beam_bonds,beams,fixed_spheres,static)
+    time_step_start(particles,conf,list,cundall_particles,cundall_walls,beam_bonds,beams,fixed_spheres,static,t)
     
     # Time Integration.
     for i in 1:trunc(Int, conf.tf/conf.dt) # Number of Steps.
         t+=conf.dt
         
-        time_step(particles,conf,list,cundall_particles,cundall_walls,beam_bonds,beams,fixed_spheres,static)
+        time_step(particles,conf,list,cundall_particles,cundall_walls,beam_bonds,beams,fixed_spheres,static,t)
         
         # Update Cell List.
         update!(system, particles.r)
@@ -110,10 +110,11 @@ function time_step_start(particles::StructVector{<:AbstractParticle},
     beam_bonds::ExtendableSparseMatrix{Int64, Int64},
     beams::StructVector{Beam},
     fixed_spheres::Vector{Int64},
-    static::Bool)
+    static::Bool,
+    t::Float64)
     
     # Calculate_Forces is defined in Forces.jl
-    Calculate_Forces(particles,neighborlist,conf,cundall_particles,cundall_walls,beam_bonds,beams)
+    Calculate_Forces(particles,neighborlist,conf,cundall_particles,cundall_walls,beam_bonds,beams,t)
 
     # Remove forces and torques acting over static or fixed spheres
     for i in fixed_spheres
@@ -156,10 +157,11 @@ function time_step(particles::StructVector{<:AbstractParticle},
     beam_bonds::ExtendableSparseMatrix{Int64, Int64},
     beams::StructVector{Beam},
     fixed_spheres::Vector{Int64},
-    static::Bool)
+    static::Bool,
+    t::Float64)
 
     #Calculate_Forces is defined in Forces.jl
-    Calculate_Forces(particles,neighborlist,conf,cundall_particles,cundall_walls,beam_bonds,beams)
+    Calculate_Forces(particles,neighborlist,conf,cundall_particles,cundall_walls,beam_bonds,beams,t)
 
     # Remove forces and torques acting over static or fixed spheres
     for i in fixed_spheres

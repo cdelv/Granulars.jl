@@ -13,7 +13,8 @@ function Calculate_Forces(particles::StructVector{Particle},
     cundall_particles::ExtendableSparseMatrix{Float64, Int64},
     cundall_walls::ExtendableSparseMatrix{Float64, Int64},
     beam_bonds::ExtendableSparseMatrix{Int64, Int64},
-    beams::StructVector{Beam})
+    beams::StructVector{Beam},
+    t::Float64)
     
     for i in eachindex(particles)
         # Calculate and Add Forces With Walls, torque and force is reset in the function
