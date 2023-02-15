@@ -26,6 +26,9 @@ I use torque as the inertia is used in a different way.
 - m: is the mass of the particle. Change for density?
 - I: inertia of the particle in the principal axes reference frame. 
 - rad: radius of the particle.
+- E: Young Modulus.
+- G: Shear Modulus. 
+- ν: Poisson ratio
 """
 struct Particle <: AbstractParticle
     r::SVector{3, Float64}
@@ -40,6 +43,10 @@ struct Particle <: AbstractParticle
     I::SVector{3, Float64}
 
     rad::Float64
+
+    E::Float64
+    G::Float64 
+    ν::Float64
 end
 
 #=
@@ -51,7 +58,15 @@ every parameter to create a particle. However, they aren't type-stable.
 
 Example -> Particle([0,0,0],[0,0,0],1,rad=1)
 """
-function Particle(r::Vector{<:Real}, v::Vector{<:Real}, w::Vector{<:Real}, m::Real; rad::Real=1.0)::Particle
+function Particle(r::Union{Vector{<:Real}, SVector{3}}, 
+    v::Union{Vector{<:Real}, SVector{3}}, 
+    w::Union{Vector{<:Real}, SVector{3}}, 
+    m::Real; 
+    rad::Real=1.0, 
+    E::Real=1.0e6, 
+    G::Real=1.0e6)::Particle
+
+    ν::Float64 = Float64(E/(2.0*G) - 1.0) # Poisson ratio
     p = Particle(SVector{3,Float64}(r),
         SVector{3,Float64}(v),
         zeros(SVector{3}),
@@ -60,7 +75,10 @@ function Particle(r::Vector{<:Real}, v::Vector{<:Real}, w::Vector{<:Real}, m::Re
         zeros(SVector{3}),
         Float64(m),
         ones(SVector{3}),
-        Float64(rad))
+        Float64(rad),
+        Float64(E),
+        Float64(G), 
+        ν)
     P = Set_Inertia(p) # Adds the innertia tensor and particle orientation. Defined in Utils.jl
     Set_w(p,Lab_to_body(w,p.q))
 end
@@ -68,7 +86,14 @@ end
 """
 Example -> Particle([0,0,0],[0,0,0],m=1,rad=1)
 """
-function Particle(r::Vector{<:Real}, v::Vector{<:Real}; m::Real=1.0, rad::Real=1.0)::Particle
+function Particle(r::Union{Vector{<:Real}, SVector{3}}, 
+    v::Union{Vector{<:Real}, SVector{3}}; 
+    m::Real=1.0, 
+    rad::Real=1.0, 
+    E::Real=1.0e6, 
+    G::Real=1.0e6)::Particle
+
+    ν::Float64 = Float64(E/(2.0*G) - 1.0) # Poisson ratio
     p = Particle(SVector{3,Float64}(r),
         SVector{3,Float64}(v),
         zeros(SVector{3}),
@@ -77,7 +102,9 @@ function Particle(r::Vector{<:Real}, v::Vector{<:Real}; m::Real=1.0, rad::Real=1
         zeros(SVector{3}),
         Float64(m),
         ones(SVector{3}),
-        Float64(rad))
+        Float64(rad),
+        Float64(E),
+        Float64(G), ν)
     Set_Inertia(p) # Adds the innertia tensor and particle orientation. Defined in Utils.jl
 end
 
@@ -87,7 +114,16 @@ This one has alocations and its slow
 Example -> Particle(r=[0,0,0],m=1)
 Example -> Particle().
 """
-function Particle(;r::Vector{<:Real}=[0.0,0.0,0.0], v::Vector{<:Real}=[0.0,0.0,0.0], w::Vector{<:Real}=[0.0,0.0,0.0], m::Real=1.0, I::Vector{<:Real}=[1.0,1.0,1.0], rad::Real=1.0)::Particle
+function Particle(;r::Union{Vector{<:Real}, SVector{3}}=[0.0,0.0,0.0], 
+    v::Union{Vector{<:Real}, SVector{3}}=[0.0,0.0,0.0], 
+    w::Union{Vector{<:Real}, SVector{3}}=[0.0,0.0,0.0], 
+    m::Real=1.0, 
+    I::Union{Vector{<:Real}, SVector{3}}=[1.0,1.0,1.0], 
+    rad::Real=1.0, 
+    E::Real=1.0e6, 
+    G::Real=1.0e6)::Particle
+
+    ν::Float64 = Float64(E/(2.0*G) - 1.0) # Poisson ratio
     p = Particle(SVector{3,Float64}(r),
         SVector{3,Float64}(v),
         zeros(SVector{3}),
@@ -96,7 +132,9 @@ function Particle(;r::Vector{<:Real}=[0.0,0.0,0.0], v::Vector{<:Real}=[0.0,0.0,0
         zeros(SVector{3}),
         Float64(m),
         SVector{3,Float64}(I),
-        Float64(rad))
+        Float64(rad),
+        Float64(E),
+        Float64(G), ν)
     P = Set_Inertia(p) # Adds the innertia tensor and particle orientation. Defined in Utils.jl
     Set_w(p,Lab_to_body(p.w,p.q))
 end
@@ -162,8 +200,8 @@ Update orientation according to MD algortihm.
 """
 function Move_q(q::Quaternion{Float64}, w::SVector{3, Float64}, dt::Float64)::Quaternion{Float64}
     Q_q_dt::Quaternion{Float64} = dquat(q, w)
-    a1::Float64 = 1.0 - dt*dt*dot(w,w)/16
-    a2::Float64 = 1.0 + dt*dt*dot(w,w)/16
+    a1::Float64 = 1.0 - dt*dt*dot(w,w)/16.0
+    a2::Float64 = 1.0 + dt*dt*dot(w,w)/16.0
     return unitary((a1*q + Q_q_dt*dt)/a2)
 end
 
@@ -171,32 +209,40 @@ end
 SET METHODS
 =#
 function Set_r(p::Particle, r::SVector{3, Float64})::Particle
-    return Particle(r,p.v,p.a,p.q,p.w,p.τ,p.m,p.I,p.rad)
+    return Particle(r,p.v,p.a,p.q,p.w,p.τ,p.m,p.I,p.rad,p.E,p.G,p.ν)
 end
 function Set_v(p::Particle, v::SVector{3, Float64})::Particle
-    return Particle(p.r,v,p.a,p.q,p.w,p.τ,p.m,p.I,p.rad)
+    return Particle(p.r,v,p.a,p.q,p.w,p.τ,p.m,p.I,p.rad,p.E,p.G,p.ν)
 end
 function Set_a(p::Particle, a::SVector{3, Float64})::Particle
-    return Particle(p.r,p.v,a,p.q,p.w,p.τ,p.m,p.I,p.rad)
+    return Particle(p.r,p.v,a,p.q,p.w,p.τ,p.m,p.I,p.rad,p.E,p.G,p.ν)
 end
 function Set_q(p::Particle, q::Quaternion{Float64})::Particle
-    return Particle(p.r,p.v,p.a,q,p.w,p.τ,p.m,p.I,p.rad)
+    return Particle(p.r,p.v,p.a,q,p.w,p.τ,p.m,p.I,p.rad,p.E,p.G,p.ν)
 end
 function Set_w(p::Particle, w::SVector{3, Float64})::Particle
-    return Particle(p.r,p.v,p.a,p.q,w,p.τ,p.m,p.I,p.rad)
+    return Particle(p.r,p.v,p.a,p.q,w,p.τ,p.m,p.I,p.rad,p.E,p.G,p.ν)
 end
 function Set_τ(p::Particle, τ::SVector{3, Float64})::Particle
-    return Particle(p.r,p.v,p.a,p.q,p.w,τ,p.m,p.I,p.rad)
+    return Particle(p.r,p.v,p.a,p.q,p.w,τ,p.m,p.I,p.rad,p.E,p.G,p.ν)
 end
 function Set_m(p::Particle, m::Float64)::Particle
     @assert m > 0.0
-    return Particle(p.r,p.v,p.a,p.q,p.w,p.τ,m,p.I,p.rad)
+    return Particle(p.r,p.v,p.a,p.q,p.w,p.τ,m,p.I,p.rad,p.E,p.G,p.ν)
 end
 function Set_I(p::Particle, I::SVector{3, Float64})::Particle
     @assert all(>(0.0), I)
-    return Particle(p.r,p.v,p.a,p.q,p.w,p.τ,p.m,I,p.rad)
+    return Particle(p.r,p.v,p.a,p.q,p.w,p.τ,p.m,I,p.rad,p.E,p.G,p.ν)
 end
 function Set_rad(p::Particle, rad::Float64)::Particle
     @assert rad > 0.0
-    return Particle(p.r,p.v,p.a,p.q,p.w,p.τ,p.m,p.I,rad)
+    return Particle(p.r,p.v,p.a,p.q,p.w,p.τ,p.m,p.I,rad,p.E,p.G,p.ν)
+end
+function Set_E(p::Particle, E::Float64)::Particle
+    ν::Float64 = E/(2.0*p.G) - 1.0
+    return Particle(p.r,p.v,p.a,p.q,p.w,p.τ,p.m,p.I,p.rad,E,p.G,ν)
+end
+function Set_G(p::Particle, G::Float64)::Particle
+    ν::Float64 = p.E/(2.0*G) - 1.0
+    return Particle(p.r,p.v,p.a,p.q,p.w,p.τ,p.m,p.I,p.rad,p.E,G,ν)
 end

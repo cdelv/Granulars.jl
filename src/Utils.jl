@@ -1,3 +1,25 @@
+"""
+Damping coeficient as a function of the coeficient of restitution.
+
+"""
+function γ(en::Float64)::Float64
+    if en >= 1.0
+        return 0.0 
+    end
+    h1::Float64 = -6.918798
+    h2::Float64 = -16.41105
+    h3::Float64 = 146.8049
+    h4::Float64 = -796.4559
+    h5::Float64 = 2928.711
+    h6::Float64 = -7206.864
+    h7::Float64 = 11494.29
+    h8::Float64 = -11342.18
+    h9::Float64 = 6276.757
+    h10::Float64 = -1489.915
+    α::Float64 = en*(h1+en*(h2+en*(h3+en*(h4+en*(h5+en*(h6+en*(h7+en*(h8+en*(h9+en*h10)))))))))
+    return sqrt((1.0/(1.0-(1.0+en)^2*exp(α)))-1.0)
+end
+
 
 """
 Returns a normalize vector unless the norm=0, then it returns [0,0,0].
@@ -146,22 +168,22 @@ end
 """
 Creates the walls needed for a box with a corner in (0,0,0).
 """
-function Create_Box(lx::Real, ly::Real, lz::Real)::Vector{Wall}
+function Create_Box(lx::Real, ly::Real, lz::Real; E::Real=1.0e6, G::Real=1.0e6)::Vector{Wall}
     Lx::Float64 = Float64(lx)
     Ly::Float64 = Float64(ly)
     Lz::Float64 = Float64(lz)
 
     # X coordinate walls
-    W1::Wall = Wall(SVector(1.0,0.0,0.0), SVector(0.0,0.0,0.0))
-    W2::Wall = Wall(SVector(-1.0,0.0,0.0),SVector(Lx,0.0,0.0))
+    W1::Wall = Wall(SVector(1.0,0.0,0.0), SVector(0.0,0.0,0.0), E=E, G=G)
+    W2::Wall = Wall(SVector(-1.0,0.0,0.0),SVector(Lx,0.0,0.0), E=E, G=G)
     
     # Y coordinate walls
-    W3::Wall = Wall(SVector(0.0,1.0,0.0), SVector(0.0,0.0,0.0))
-    W4::Wall = Wall(SVector(0.0,-1.0,0.0),SVector(0.0,Ly,0.0))
+    W3::Wall = Wall(SVector(0.0,1.0,0.0), SVector(0.0,0.0,0.0), E=E, G=G)
+    W4::Wall = Wall(SVector(0.0,-1.0,0.0),SVector(0.0,Ly,0.0), E=E, G=G)
     
     # Z coordinate walls
-    W5::Wall = Wall(SVector(0.0,0.0,1.0), SVector(0.0,0.0,0.0))
-    W6::Wall = Wall(SVector(0.0,0.0,-1.0),SVector(0.0,0.0,Lz))
+    W5::Wall = Wall(SVector(0.0,0.0,1.0), SVector(0.0,0.0,0.0), E=E, G=G)
+    W6::Wall = Wall(SVector(0.0,0.0,-1.0),SVector(0.0,0.0,Lz), E=E, G=G)
     
     [W1,W2,W3,W4,W5,W6]
 end

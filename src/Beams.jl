@@ -50,7 +50,11 @@ function Beam(p_i::Particle, p_j::Particle, conf::Config)::Beam
     # Diference between the particle and beam frame. They are fixed and move the same amount.
     Δq0j::Quaternion{Float64} = Beam_Orientation(unitary(p_j.r - p_i.r)) ∘ inv(p_j.q) # Defined in Utils.jl
 
-    Beam(conf.E, conf.G, J, I, A, L, unitary(Δq0i), unitary(Δq0j))
+    # Reduced Young and shear modulus
+    Eij::Float64 = 2*p_i.E*p_j.E/(p_i.E + p_j.E)
+    Gij::Float64 = 2*p_i.G*p_j.G/(p_i.G + p_j.G)
+
+    Beam(Eij, Gij, J, I, A, L, unitary(Δq0i), unitary(Δq0j))
 end
 
 """
@@ -138,12 +142,14 @@ function Beam_Force(particles::StructVector{Particle},
         )
 
     # Damping force according to Raleigh damping model BROKEN!!!
+    #=
     vi = Lab_to_body(particles.v[i], qbi)
     vj = Lab_to_body(particles.v[j], qbi)
     wi = Lab_to_body(Body_to_lab(particles.w[i],particles.q[i]), qbi)
     wj = Lab_to_body(Body_to_lab(particles.w[j],particles.q[j]), qbi)
     @inbounds V::SVector{12,Float64} = (vi[1], vi[2], vi[3], wi[1], wi[2], wi[3], vj[1], vj[2], vj[3], wj[1], wj[2], wj[3])
     F -= (0.0*Stifness_Matrix(beams.A[k], beams.L[k], beams.E[k], beams.G[k], beams.I[k], beams.J[k]) + 1.0*Mass_Matrix(beams.A[k], beams.L[k], particles.m[i], particles.rad[i]))*V
+    =#
 
     # Add forces and torques to the particles.
     @inbounds particles.a[i] += Body_to_lab(SVector(F[1], F[2], F[3]), qbi)/particles.m[i] 

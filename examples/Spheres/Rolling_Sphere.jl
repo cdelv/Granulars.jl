@@ -7,27 +7,15 @@ function main(t)
     Lz = 25
 
     # time step
-    dt = 0.01
+    dt = 0.001
 
-    # X coordinate walls
-    W1 = Wall([1,0,0],[0,0,0])
-    W2 = Wall([-1,0,0],[Lx,0,0])
-    
-    # Y coordinate walls
-    W3 = Wall([0,1,0],[0,0,0])
-    W4 = Wall([0,-1,0],[0,Ly,0])
-    
-    # Z coordinate walls
-    W5 = Wall([0,0,1],[0,0,0])
-    W6 = Wall([0,0,-1],[0,0,Lz])
+    walls = Create_Box(Lx,Ly,Lz)
 
-    walls = [W1,W2,W3,W4,W5,W6]
-
-    conf = Config(t, dt, walls=walls, gamma=100)
+    conf = Config(t, dt, walls=walls, en=0.8)
 
     p = Particle(r=[3,1,10], v=[0,0,0], w=[0,0,-5])
 
-    Propagate([p], conf, vis_steps=65, file="Paraview/data", save=true)
+    Propagate([p], conf, vis_steps=600, file="Paraview/data", save=true)
 end
 
-@time main(200*0.01*65);
+@time main(200*0.001*600);

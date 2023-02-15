@@ -3,10 +3,18 @@ Struct for representing infinite walls as planes. They are dimensionally general
 - D: Dimension.
 - n: Normal vector. It has to be unitary. However, it is normalized in the constructor. 
 - Q: A point of the plane. 
+
+- E: Young Modulus.
+- G: Shear Modulus. 
+- ν: Poisson ratio
 """
 struct Wall
     n::SVector{3, Float64}
     Q::SVector{3, Float64}
+
+    E::Float64
+    G::Float64 
+    ν::Float64
 end
 
 """
@@ -15,63 +23,69 @@ For convenience, it normalizes the normal vector automatically.
 - n: Normal vector.
 - q: A point of the plane. 
 """
-function Wall(n::Vector{<:Real}, q::Vector{<:Real})::Wall
-	N = convert(SVector{3,Float64}, n)
-	N = normalize(N) # error if [0,0,0]
-	Q = convert(SVector{3,Float64}, q)
-	Wall(N,Q)
+function Wall(n::Union{Vector{<:Real}, SVector{3}}, 
+    q::Union{Vector{<:Real}, SVector{3}}; 
+    E::Real=1.0e6, 
+    G::Real=1.0e6)::Wall
+    
+    ν::Float64 = Float64(E/(2.0*G) - 1.0) # Poisson ratio
+	N::SVector{3,Float64} = normalize(SVector{3,Float64}(n)) # error if [0,0,0]
+	Q::SVector{3,Float64} = SVector{3,Float64}(q)
+	Wall(N,Q,Float64(E),Float64(G),ν)
 end
 
+#=
+SET METHODS
+=#
+function Set_n(w::Wall, n::SVector{3, Float64})::Wall
+    return Wall(normalize(n),w.Q,w.E,w.G,w.ν)
+end
+function Set_Q(w::Wall, Q::SVector{3, Float64})::Wall
+    return Wall(w.n,Q,w.E,w.G,w.ν)
+end
+function Set_E(w::Wall, E::Float64)::Wall
+    ν::Float64 = E/(2.0*w.G) - 1.0
+    return Wall(w.n,w.Q,E,w.G,ν)
+end
+function Set_G(w::Wall, G::Float64)::Wall
+    ν::Float64 = w.E/(2.0*G) - 1.0
+    return Wall(w.n,w.Q,w.E,G,ν)
+end
 
 """
 Struct to configure the simulation. It stores information about the 
 time, force parameters, and walls.  
 - tf: Maximum simulation time.
 - dt: Time step.
-- K: Constant for Hertz force calculation. CHANGE FOR EXACT VAL. TO DO: (Support for multiple species)
-- gamma: Damping constant.
 - g: Simulation gravity vector. 
 - walls: Array of Wall structs that define the simulation bounds. 
-- K_kundall: Kundall spring constant. TO DO: (Support for multiple species)
+
 - mu: Friction coefficient. TO DO: (Support for multiple species)
-- E: Young Modulus.
-- G: Shear Modulus. 
+- en: Coeficient of restitution. TO DO: (Support for multiple species)
 """
 struct Config
 	tf::Float64
 	dt::Float64
-	K::Float64
-	gamma::Float64
     g::SVector{3, Float64}
     walls::Vector{Wall}
-    K_cundall::Float64
+
     mu::Float64
-    G::Float64
-    E::Float64
+    en::Float64
 end
 
 """
-Convenience constructor for Config. It will error if g and Wall have different sizes. 
+Convenience constructor for Config
 - tf: Maximum simulation time
 - dt: Time step.
-- K: Constant for Hertz force calculation. Has to be change to be more general.
-- gamma: Damping constant
 - g: Simulation gravity vector. 
 - walls: Array of Wall structs that define the simulation bounds. 
-- K_kundall: Kundall spring constant.
 - mu: Friction coefficient.
-- E: Young Modulus.
-- G: Shear Modulus. 
 
 Does allocations!!!
 """
 function Config(tf::Real, dt::Real; walls::Vector{Wall}=Wall[], 
-    g::Vector{<:Real}=[0,-9.8,0], k::Real=5.0e3, 
-    gamma::Real=500, KK::Real=900.0, mu::Real=0.4,
-    G::Real=120000.0, E::Real=80000.0)::Config
+    g::Vector{<:Real}=[0.0,-9.8,0.0], mu::Real=0.4, en::Real=0.9)::Config
 
-	Config(convert(Float64,tf), convert(Float64,dt), convert(Float64,k),
-        convert(Float64,gamma), convert(SVector{3,Float64}, g), 
-        convert(Vector{Wall}, unique(walls)),convert(Float64,KK), convert(Float64,mu),
-        convert(Float64,G), convert(Float64,E))
+	Config(Float64(tf), Float64(dt), SVector{3,Float64}(g), 
+        Vector{Wall}(unique(walls)), Float64(mu), Float64(en))
 end
