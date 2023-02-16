@@ -52,7 +52,7 @@ PUT THE EXACT INERTIA WHEN THE MULTISPHERE IS DONE
 https://ocw.mit.edu/courses/16-07-dynamics-fall-2009/dd277ec654440f4c2b5b07d6c286c3fd_MIT16_07F09_Lec26.pdf
 """
 function Compute_Inertia_Tensor(p::Particle, num::Int64=50000)::Matrix{Float64}
-    Ixx::Float64 = 0.0
+    #=Ixx::Float64 = 0.0
     Iyy::Float64 = 0.0
     Izz::Float64 = 0.0
     Ixy::Float64 = 0.0
@@ -70,8 +70,8 @@ function Compute_Inertia_Tensor(p::Particle, num::Int64=50000)::Matrix{Float64}
             @inbounds T+=1.0
         end
     end
-    return (p.m/T)*SMatrix{3,3}(Ixx, -Ixy, -Ixz, -Ixy, Iyy, -Ixy, -Ixy, Iyz, Izz)
-    #(2*p.m*p.rad*p.rad/5)*SMatrix{3,3}(1.0I(3))
+    return (p.m/T)*SMatrix{3,3}(Ixx, -Ixy, -Ixz, -Ixy, Iyy, -Ixy, -Ixy, Iyz, Izz)=#
+    (2*p.m*p.rad*p.rad/5)*SMatrix{3,3}(1.0I(3))
 end
 
 
@@ -186,4 +186,45 @@ function Create_Box(lx::Real, ly::Real, lz::Real; E::Real=1.0e6, G::Real=1.0e6):
     W6::Wall = Wall(SVector(0.0,0.0,-1.0),SVector(0.0,0.0,Lz), E=E, G=G)
     
     [W1,W2,W3,W4,W5,W6]
+end
+
+
+"""
+
+"""
+function Actions_Before_Time_Step(particles::StructVector{<:AbstractParticle}, 
+    conf::Config, 
+    neighborlist::Vector{Tuple{Int64, Int64, Float64}},
+    cundall_particles::ExtendableSparseMatrix{Float64, Int64},
+    cundall_walls::ExtendableSparseMatrix{Float64, Int64},
+    beam_bonds::ExtendableSparseMatrix{Int64, Int64},
+    beams::StructVector{Beam},
+    fixed_spheres::Vector{Int64},
+    static::Bool,
+    t::Float64)
+    nothing
+end
+
+"""
+
+"""
+function Actions_After_Time_Step(particles::StructVector{<:AbstractParticle}, 
+    conf::Config, 
+    neighborlist::Vector{Tuple{Int64, Int64, Float64}},
+    cundall_particles::ExtendableSparseMatrix{Float64, Int64},
+    cundall_walls::ExtendableSparseMatrix{Float64, Int64},
+    beam_bonds::ExtendableSparseMatrix{Int64, Int64},
+    beams::StructVector{Beam},
+    fixed_spheres::Vector{Int64},
+    static::Bool,
+    t::Float64)
+    nothing
+end
+
+function sparcify(v::Float64)::Float64
+    if v < 1.0e-14
+        return 0.0
+    else
+        return v
+    end
 end

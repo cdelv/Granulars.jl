@@ -69,7 +69,11 @@ function Propagate(data::Vector{Particle},
     for i in 1:trunc(Int, conf.tf/conf.dt) # Number of Steps.
         t+=conf.dt
         
+        Actions_Before_Time_Step(particles,conf,list,cundall_particles,cundall_walls,beam_bonds,beams,fixed_spheres,static,t)
+
         time_step(particles,conf,list,cundall_particles,cundall_walls,beam_bonds,beams,fixed_spheres,static,t)
+
+        Actions_After_Time_Step(particles,conf,list,cundall_particles,cundall_walls,beam_bonds,beams,fixed_spheres,static,t)
         
         # Update Cell List.
         update!(system, particles.r)

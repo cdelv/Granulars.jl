@@ -67,7 +67,7 @@ function Particle(r::Union{Vector{<:Real}, SVector{3}},
     G::Real=1.0e6)::Particle
 
     ν::Float64 = Float64(E/(2.0*G) - 1.0) # Poisson ratio
-    p = Particle(SVector{3,Float64}(r),
+    p::Particle = Particle(SVector{3,Float64}(r),
         SVector{3,Float64}(v),
         zeros(SVector{3}),
         Quaternion(1.0I),
@@ -79,7 +79,7 @@ function Particle(r::Union{Vector{<:Real}, SVector{3}},
         Float64(E),
         Float64(G), 
         ν)
-    P = Set_Inertia(p) # Adds the innertia tensor and particle orientation. Defined in Utils.jl
+    p = Set_Inertia(p) # Adds the innertia tensor and particle orientation. Defined in Utils.jl
     Set_w(p,Lab_to_body(w,p.q))
 end
 
@@ -94,7 +94,7 @@ function Particle(r::Union{Vector{<:Real}, SVector{3}},
     G::Real=1.0e6)::Particle
 
     ν::Float64 = Float64(E/(2.0*G) - 1.0) # Poisson ratio
-    p = Particle(SVector{3,Float64}(r),
+    p::Particle = Particle(SVector{3,Float64}(r),
         SVector{3,Float64}(v),
         zeros(SVector{3}),
         Quaternion(1.0I),
@@ -124,7 +124,7 @@ function Particle(;r::Union{Vector{<:Real}, SVector{3}}=[0.0,0.0,0.0],
     G::Real=1.0e6)::Particle
 
     ν::Float64 = Float64(E/(2.0*G) - 1.0) # Poisson ratio
-    p = Particle(SVector{3,Float64}(r),
+    p::Particle = Particle(SVector{3,Float64}(r),
         SVector{3,Float64}(v),
         zeros(SVector{3}),
         Quaternion(1.0I),
@@ -135,7 +135,7 @@ function Particle(;r::Union{Vector{<:Real}, SVector{3}}=[0.0,0.0,0.0],
         Float64(rad),
         Float64(E),
         Float64(G), ν)
-    P = Set_Inertia(p) # Adds the innertia tensor and particle orientation. Defined in Utils.jl
+    p = Set_Inertia(p) # Adds the innertia tensor and particle orientation. Defined in Utils.jl
     Set_w(p,Lab_to_body(p.w,p.q))
 end
 

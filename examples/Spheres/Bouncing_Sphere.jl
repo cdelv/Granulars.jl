@@ -10,6 +10,7 @@ function main(t)
     dt = 0.001
 
     walls = Create_Box(Lx,Ly,Lz)
+    walls = [Wall([0.0,1.0,0.0], [0.0,0.0,0.0])]
 
     conf = Config(t, dt, walls=walls)
 

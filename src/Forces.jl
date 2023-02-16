@@ -65,29 +65,34 @@ function Force_With_Pairs(particles::StructVector{Particle}, conf::Config,
             continue
         end
 
+        # Antiracheting 
+        # https://gitlab.com/yade-dev/trunk/-/blob/master/pkg/dem/ScGeom.cpp#L65-94
+        # proposed by McNamara and co-workers. dicusion -> DOI 10.1103/PhysRevE.77.031304
+        α::Float64 = (particles.rad[i] + particles.rad[j])/(particles.rad[i] + particles.rad[j] - s)
+
         # Normal vector.
         @inbounds n::SVector{3, Float64} = unitary(particles.r[i] - particles.r[j]) # The normal goes from j to i.
 
         # Relative velocity. Carefull with angular velocity!
-        @inbounds Vij::SVector{3, Float64} = (particles.v[i] + cross( Body_to_lab(particles.w[i],particles.q[i]), -particles.rad[i]*n ) 
-            - (particles.v[j] + cross( Body_to_lab(particles.w[j],particles.q[j]), particles.rad[j]*n )))
+        @inbounds Vij::SVector{3, Float64} = (α*particles.v[i] + cross( Body_to_lab(particles.w[i],particles.q[i]), -particles.rad[i]*n ) 
+                    - (α*particles.v[j] + cross( Body_to_lab(particles.w[j],particles.q[j]), particles.rad[j]*n )))
 
         # Tangential vector.
-        t::SVector{3, Float64} = unitary(Vij - dot(Vij,n)*n)
+        t::SVector{3, Float64} = unitary(sparcify.(Vij - dot(Vij,n)*n))
 
         # Reduced mass, radius, young modulus, and shear modulus
         @inbounds mij::Float64 = particles.m[i]*particles.m[j]/(particles.m[i] + particles.m[j])
         @inbounds Rij::Float64 = particles.rad[i]*particles.rad[j]/(particles.rad[i] + particles.rad[j])
-        @inbounds Eij::Float64 = particles.E[i]*particles.E[j]/(particles.E[i] + particles.E[j])
-        @inbounds Gij::Float64 = particles.G[i]*particles.G[j]/(particles.G[i] + particles.G[j])
+        @inbounds Eij::Float64 = particles.E[i]*particles.E[j]/((1-particles.ν[i]^2)*particles.E[j]+(1-particles.ν[j]^2)*particles.E[i])
+        @inbounds Gij::Float64 = particles.G[i]*particles.G[j]/((2-particles.ν[i])*particles.G[j]+(2-particles.ν[j])*particles.G[i])
 
         # Calculate normal forces.
-        Vn::Float64 = dot(Vij,conf.walls[j].n)
-        @inbounds Fn::Float64 = max(0.0, Hertz_Force(s,Eij,Rij) - Normal_Damping_Force(s, mij, Eij, Rij, Vn, conf.en))
+        Vn::Float64 = dot(Vij,n)
+        Fn::Float64 = max(0.0, Hertz_Force(s,Eij,Rij) - Normal_Damping_Force(s, mij, Eij, Rij, Vn, conf.en))
 
         # Calculate tangencial forces
         Vt::Float64 = dot(Vij,t)
-        @inbounds Ft::Float64 = -Mindlin_Shear_And_friction(mindlin_F, i, j, Vt, Gij, Rij, s, mij, Fn, conf)
+        Ft::Float64 = Mindlin_Shear_And_friction(mindlin_F, i, j, Vt, Gij, Rij, s, mij, Fn, conf)
 
         # Total force
         F::SVector{3, Float64} = Fn*n + Ft*t
@@ -116,7 +121,7 @@ function Force_With_Walls(particles::StructVector{Particle}, i::Int64, conf::Con
     mindlin_F::ExtendableSparseMatrix{Float64, Int64})
     
     # Reset torques and set gravity to reset forces.
-    @inbounds F::SVector{3, Float64} = conf.g*particles.m[i]
+    @inbounds F::SVector{3, Float64} = particles.m[i]*conf.g
     T::SVector{3, Float64} = zeros(SVector{3})
 
     for j in eachindex(conf.walls)
@@ -133,7 +138,7 @@ function Force_With_Walls(particles::StructVector{Particle}, i::Int64, conf::Con
         end
 
         # Relative velocity. Carefull with angular velocity! The minus sing is due to the direction of the normal.
-        @inbounds Vij::SVector{3, Float64} = particles.v[i] + cross(Body_to_lab(particles.w[i],particles.q[i]), -particles.rad[i]*conf.walls[j].n)
+        @inbounds Vij::SVector{3, Float64} = particles.v[i] - cross(Body_to_lab(particles.w[i],particles.q[i]), particles.rad[i]*conf.walls[j].n)
 
         # Tangential vector. The normal one is conf.walls[j].n, it enters the particle.
         t::SVector{3, Float64} = unitary(Vij - dot(Vij,conf.walls[j].n)*conf.walls[j].n)
@@ -141,16 +146,16 @@ function Force_With_Walls(particles::StructVector{Particle}, i::Int64, conf::Con
         # Reduced mass, radius, young modulus, and shear modulus
         @inbounds mij::Float64 = particles.m[i] # Reduced mass is m (wall with infinite mass).
         @inbounds Rij::Float64 = particles.rad[i] # Reduced radius is rad (wall with infinite radius).
-        @inbounds Eij::Float64 = particles.E[i]*conf.walls[j].E/(particles.E[i] + conf.walls[j].E)
-        @inbounds Gij::Float64 = particles.G[i]*conf.walls[j].G/(particles.G[i] + conf.walls[j].G)
+        @inbounds Eij::Float64 = particles.E[i]*conf.walls[j].E/((1-particles.ν[i]^2)*conf.walls[j].E+(1-conf.walls[j].ν^2)*particles.E[i])
+        @inbounds Gij::Float64 = particles.G[i]*conf.walls[j].G/((2-particles.ν[i])*conf.walls[j].G+(2-conf.walls[j].ν)*particles.G[i])
 
         # Calculate normal forces.
         Vn::Float64 = dot(Vij,conf.walls[j].n)
-        @inbounds Fn::Float64 = max(0.0, Hertz_Force(s,Eij,Rij) - Normal_Damping_Force(s, mij, Eij, Rij, Vn, conf.en))
+        Fn::Float64 = max(0.0, Hertz_Force(s,Eij,Rij) - Normal_Damping_Force(s, mij, Eij, Rij, Vn, conf.en))
 
-        # Calculate tangencial forces (Kundal friction force)
+        # Calculate tangencial forces
         Vt::Float64 = dot(Vij,t)
-        @inbounds Ft::Float64 = -Mindlin_Shear_And_friction(mindlin_F, i, j, Vt, Gij, Rij, s, mij, Fn, conf)
+        Ft::Float64 = Mindlin_Shear_And_friction(mindlin_F, i, j, Vt, Gij, Rij, s, mij, Fn, conf)
         
         # Add Total force and Torque of this wall
         @inbounds F += Fn*conf.walls[j].n + Ft*t
@@ -171,7 +176,7 @@ Hertz Force.
 - Rij: Reduced radius.  
 """
 @inline function Hertz_Force(s::Float64, Eij::Float64, Rij::Float64)::Float64
-    0.75*Eij*sqrt(Rij*s)*s # s^1.5 but faster
+    4.0*Eij*sqrt(Rij*s)*s/3.0 # s^1.5 but faster
 end
 
 """
@@ -209,6 +214,11 @@ Not doing the checks for the normal force evolution...
 - s: Interpenetration distance.
 - Fn: Normal force magnitude. 
 - conf: Simulation configuration, it's a Conf struct, implemented in Configuration.jl.
+
+Shpuld need to rotate previus shear force but not duing it. See:
+https://gitlab.com/yade-dev/trunk/-/blob/master/pkg/dem/ScGeom.cpp#L15-23
+https://gitlab.com/yade-dev/trunk/-/blob/master/pkg/dem/ScGeom.cpp#L37-62
+https://gitlab.com/yade-dev/trunk/-/blob/master/pkg/dem/HertzMindlin.cpp#L363-382
 """
 @inline function Mindlin_Shear_And_friction(
     mindlin_F::ExtendableSparseMatrix{Float64, Int64},
@@ -223,12 +233,13 @@ Not doing the checks for the normal force evolution...
     conf::Config)::Float64
 
     kt::Float64 = 8.0*Gij*sqrt(Rij*s)
-    @inbounds mindlin_F[i,j] += kt*Vt*conf.dt
-    @inbounds Ft::Float64 = mindlin_F[i,j] + 2.0*γ(conf.en)*sqrt(mij*kt)*Vt
+
+    @inbounds mindlin_F[i,j] -= Vt*conf.dt
+    @inbounds Ft::Float64 = mindlin_F[i,j]*kt - 2.0*γ(conf.en)*sqrt(mij*kt)*Vt
 
     # TO DO: Diferenciate between the 2 friction coeficients!
-    if Ft >= Fn*conf.mu 
-        return Fn*conf.mu 
+    if abs(Ft) >= Fn*conf.mu 
+        return sign(Ft)*Fn*conf.mu 
     end
     Ft
 end
