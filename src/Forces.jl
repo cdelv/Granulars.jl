@@ -16,6 +16,11 @@ function Calculate_Forces(particles::StructVector{Particle},
     beams::StructVector{Beam},
     t::Float64)
     
+    # Reset force acting upon the wall
+    for i in eachindex(conf.walls)
+        conf.walls[i] = Set_F(conf.walls[i], zeros(SVector{3}))
+    end
+    
     for i in eachindex(particles)
         # Calculate and Add Forces With Walls, torque and force is reset in the function
         Force_With_Walls(particles, i, conf, mindlin_F_walls)
@@ -58,7 +63,7 @@ function Force_With_Pairs(particles::StructVector{Particle}, conf::Config,
         @inbounds s::Float64 = particles.rad[i] + particles.rad[j] - d
 
         # Check for contact. Remember that the neighborlist hass a bigger cuttof. 
-        if s < 0.0
+        if s <= 0.0
             # Reset Cundall spring distance if there is no contact. 
             @inbounds mindlin_F[i,j] = 0.0
             dropzeros!(mindlin_F) # Remove 0 entries from the sparse matrix.
@@ -77,9 +82,6 @@ function Force_With_Pairs(particles::StructVector{Particle}, conf::Config,
         @inbounds Vij::SVector{3, Float64} = (α*particles.v[i] + cross( Body_to_lab(particles.w[i],particles.q[i]), -particles.rad[i]*n ) 
                     - (α*particles.v[j] + cross( Body_to_lab(particles.w[j],particles.q[j]), particles.rad[j]*n )))
 
-        # Tangential vector.
-        t::SVector{3, Float64} = unitary(sparcify.(Vij - dot(Vij,n)*n))
-
         # Reduced mass, radius, young modulus, and shear modulus
         @inbounds mij::Float64 = particles.m[i]*particles.m[j]/(particles.m[i] + particles.m[j])
         @inbounds Rij::Float64 = particles.rad[i]*particles.rad[j]/(particles.rad[i] + particles.rad[j])
@@ -91,11 +93,11 @@ function Force_With_Pairs(particles::StructVector{Particle}, conf::Config,
         Fn::Float64 = max(0.0, Hertz_Force(s,Eij,Rij) - Normal_Damping_Force(s, mij, Eij, Rij, Vn, conf.en))
 
         # Calculate tangencial forces
-        Vt::Float64 = dot(Vij,t)
-        Ft::Float64 = Mindlin_Shear_And_friction(mindlin_F, i, j, Vt, Gij, Rij, s, mij, Fn, conf)
+        Vt::SVector{3, Float64} = Vij - dot(Vij,n)*n
+        Ft::SVector{3, Float64} = Mindlin_Shear_And_friction(mindlin_F, i, j, Vt, Gij, Rij, s, mij, Fn, conf)
 
         # Total force
-        F::SVector{3, Float64} = Fn*n + Ft*t
+        F::SVector{3, Float64} = Fn*n + Ft
 
         # Add force (Newton 2 law)
         @inbounds particles.a[i] += F/particles.m[i]
@@ -120,8 +122,8 @@ Uses the distance between a plane and a point to check for contact with the wall
 function Force_With_Walls(particles::StructVector{Particle}, i::Int64, conf::Config,
     mindlin_F::ExtendableSparseMatrix{Float64, Int64})
     
-    # Reset torques and set gravity to reset forces.
-    @inbounds F::SVector{3, Float64} = particles.m[i]*conf.g
+    # Reset torques and forces.
+    @inbounds F::SVector{3, Float64} = zeros(SVector{3})
     T::SVector{3, Float64} = zeros(SVector{3})
 
     for j in eachindex(conf.walls)
@@ -130,7 +132,7 @@ function Force_With_Walls(particles::StructVector{Particle}, i::Int64, conf::Con
         @inbounds s::Float64 = particles.rad[i] - dot(particles.r[i]-conf.walls[j].Q, conf.walls[j].n)
 
         # Check for contact.
-        if s < 0.0
+        if s <= 0.0
             # Reset Cundall spring distance if theres no contact. 
             mindlin_F[i,j] = 0.0
             dropzeros!(mindlin_F) # Remove 0 entries from the sparse matrix.
@@ -139,9 +141,6 @@ function Force_With_Walls(particles::StructVector{Particle}, i::Int64, conf::Con
 
         # Relative velocity. Carefull with angular velocity! The minus sing is due to the direction of the normal.
         @inbounds Vij::SVector{3, Float64} = particles.v[i] - cross(Body_to_lab(particles.w[i],particles.q[i]), particles.rad[i]*conf.walls[j].n)
-
-        # Tangential vector. The normal one is conf.walls[j].n, it enters the particle.
-        t::SVector{3, Float64} = unitary(Vij - dot(Vij,conf.walls[j].n)*conf.walls[j].n)
 
         # Reduced mass, radius, young modulus, and shear modulus
         @inbounds mij::Float64 = particles.m[i] # Reduced mass is m (wall with infinite mass).
@@ -154,16 +153,19 @@ function Force_With_Walls(particles::StructVector{Particle}, i::Int64, conf::Con
         Fn::Float64 = max(0.0, Hertz_Force(s,Eij,Rij) - Normal_Damping_Force(s, mij, Eij, Rij, Vn, conf.en))
 
         # Calculate tangencial forces
-        Vt::Float64 = dot(Vij,t)
-        Ft::Float64 = Mindlin_Shear_And_friction(mindlin_F, i, j, Vt, Gij, Rij, s, mij, Fn, conf)
+        Vt::SVector{3, Float64} = Vij - Vn*conf.walls[j].n
+        Ft::SVector{3, Float64} = Mindlin_Shear_And_friction(mindlin_F, i, j, Vt, Gij, Rij, s, mij, Fn, conf)
         
         # Add Total force and Torque of this wall
-        @inbounds F += Fn*conf.walls[j].n + Ft*t
-        @inbounds T += cross(-particles.rad[i]*conf.walls[j].n, Fn*conf.walls[j].n+Ft*t)
+        @inbounds F += Fn*conf.walls[j].n + Ft
+        @inbounds T += cross(-particles.rad[i]*conf.walls[j].n, Fn*conf.walls[j].n + Ft)
+
+        # Add force acting on the wall
+        conf.walls[j] = Set_F(conf.walls[j], conf.walls[j].F - Fn*conf.walls[j].n - Ft)
     end
 
     # Update force acting on particle
-    @inbounds particles.a[i] = F/particles.m[i]
+    @inbounds particles.a[i] = conf.g + F/particles.m[i]
     @inbounds particles.τ[i] = Lab_to_body(T,particles.q[i])
     
     return nothing
@@ -224,22 +226,22 @@ https://gitlab.com/yade-dev/trunk/-/blob/master/pkg/dem/HertzMindlin.cpp#L363-38
     mindlin_F::ExtendableSparseMatrix{Float64, Int64},
     i::Int64, 
     j::Int64, 
-    Vt::Float64, 
+    Vt::SVector{3, Float64}, 
     Gij::Float64, 
     Rij::Float64,
     mij::Float64, 
     s::Float64,
     Fn::Float64,
-    conf::Config)::Float64
+    conf::Config)::SVector{3, Float64}
 
     kt::Float64 = 8.0*Gij*sqrt(Rij*s)
 
-    @inbounds mindlin_F[i,j] -= Vt*conf.dt
-    @inbounds Ft::Float64 = mindlin_F[i,j]*kt - 2.0*γ(conf.en)*sqrt(mij*kt)*Vt
+    @inbounds mindlin_F[i,j] -= conf.dt
+    @inbounds Ft::SVector{3, Float64} = (mindlin_F[i,j]*kt - 2.0*γ(conf.en)*sqrt(mij*kt))*Vt
 
     # TO DO: Diferenciate between the 2 friction coeficients!
-    if abs(Ft) >= Fn*conf.mu 
-        return sign(Ft)*Fn*conf.mu 
+    if norm(Ft) > Fn*conf.mu 
+        return -Fn*conf.mu*Vt/norm(Vt) 
     end
     Ft
 end

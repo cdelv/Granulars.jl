@@ -9,10 +9,10 @@ function main(t)
     Lx = 25
     Ly = 25
     Lz = 25
-    walls = Create_Box(Lx,Ly,Lz)
+    walls = Create_Box(Lx,Ly,Lz, E=1e9, G=1e9)
     
     # Create config
-    conf = Config(t, dt, g=g, walls=walls, E=10000, G=10000, gamma=15)
+    conf = Config(t, dt, g=g, walls=walls)
 
     q = angle_to_quat(EulerAngles(0.5,0.5,0.5, :XYZ))
 
@@ -28,7 +28,7 @@ function main(t)
         for j in 1:ny
             for k in 1:nz 
                 rr = Lab_to_body(SVector(9.0 + i*dx, 4.5 + j*dy, 9.0 + k*dz), q)
-                push!(particles, Particle(r=[rr[1],rr[2],rr[3]]))
+                push!(particles, Particle(r=rr, E=9e3, G=9e3))
             end
         end
     end

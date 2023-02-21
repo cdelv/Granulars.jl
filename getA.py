@@ -117,8 +117,6 @@ def getTPhysical(A, r1, r2, rho, Y, nu, v,dT):
 	return getT(mEff,rhoMat,A,v,dT)
 	
 			
-
-
 if __name__=="__main__":
 
 	parser = argparse.ArgumentParser(prog='getA.py',

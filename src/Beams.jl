@@ -50,9 +50,9 @@ function Beam(p_i::Particle, p_j::Particle, conf::Config)::Beam
     # Diference between the particle and beam frame. They are fixed and move the same amount.
     Δq0j::Quaternion{Float64} = Beam_Orientation(unitary(p_j.r - p_i.r)) ∘ inv(p_j.q) # Defined in Utils.jl
 
-    # Reduced Young and shear modulus
-    Eij::Float64 = 2*p_i.E*p_j.E/(p_i.E + p_j.E)
-    Gij::Float64 = 2*p_i.G*p_j.G/(p_i.G + p_j.G)
+    # Average Young and shear modulus
+    Eij::Float64 = 0.5*(p_i.E + p_j.E)
+    Gij::Float64 = 0.5*(p_i.G + p_j.G)
 
     Beam(Eij, Gij, J, I, A, L, unitary(Δq0i), unitary(Δq0j))
 end
