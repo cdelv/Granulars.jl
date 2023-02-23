@@ -1,6 +1,5 @@
 """
-Struct for representing infinite walls as planes. They are dimensionally general. 
-- D: Dimension.
+Struct for representing infinite walls as infinite planes.
 - n: Normal vector. It has to be unitary. However, it is normalized in the constructor. 
 - Q: A point of the plane. 
 
@@ -38,10 +37,10 @@ function Wall(n::Union{Vector{<:Real}, SVector{3}},
 end
 
 #=
-SET METHODS
+SET METHODS FOR WALL
 =#
 function Set_n(w::Wall, n::SVector{3, Float64})::Wall
-    return Wall(normalize(n),w.Q,w.E,w.G,w.ν,w.F)
+    return Wall(normalize(n),w.Q,w.E,w.G,w.ν,w.F) # error if [0,0,0]
 end
 function Set_Q(w::Wall, Q::SVector{3, Float64})::Wall
     return Wall(w.n,Q,w.E,w.G,w.ν,w.F)
@@ -68,6 +67,8 @@ time, force parameters, and walls.
 
 - mu: Friction coefficient. TO DO: (Support for multiple species)
 - en: Coeficient of restitution. TO DO: (Support for multiple species)
+
+- v: critical velocity for Thorsten Damping Model.
 """
 mutable struct Config
 	tf::Float64
@@ -77,21 +78,25 @@ mutable struct Config
 
     mu::Float64
     en::Float64
+
+    v::Float64
 end
 
 """
 Convenience constructor for Config
-- tf: Maximum simulation time
+- tf: Simulation time.
 - dt: Time step.
-- g: Simulation gravity vector. 
+- g: Gravity. 
 - walls: Array of Wall structs that define the simulation bounds. 
-- mu: Friction coefficient.
+- mu: Friction coefficient. TO DO: (Support for multiple species)
+- en: Coeficient of restitution. TO DO: (Support for multiple species)
+- v: critical velocity for Thorsten Damping Model.
 
 Does allocations!!!
 """
 function Config(tf::Real, dt::Real; walls::Vector{Wall}=Wall[], 
-    g::Vector{<:Real}=[0.0,-9.8,0.0], mu::Real=0.4, en::Real=0.9)::Config
+    g::Union{Vector{<:Real}, SVector{3}}=[0.0,-9.8,0.0], mu::Real=0.4, en::Real=0.9, v::Real=1.0)::Config
 
 	Config(Float64(tf), Float64(dt), SVector{3,Float64}(g), 
-        Vector{Wall}(unique(walls)), Float64(mu), Float64(en))
+        unique(walls), Float64(mu), Float64(en), Float64(v))
 end

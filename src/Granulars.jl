@@ -5,12 +5,12 @@ using StructArrays
 using CellListMap
 using CSV
 using LinearAlgebra
-#using Accessors
-using SparseArrays: dropzeros!
-#using SuiteSparseGraphBLAS # explore this library after the updates that remove elements
-using ExtendableSparse: ExtendableSparseMatrix
 using ReferenceFrameRotations
-using Distributions
+using Roots
+#using Accessors
+#using SparseArrays: dropzeros!
+#using SuiteSparseGraphBLAS # explore this library after the updates that remove elements
+#using ExtendableSparse: ExtendableSparseMatrix
 
 include("Particle.jl")
 include("Configuration.jl")
@@ -22,13 +22,15 @@ include("Utils.jl")
 
 """
 Tests Ideas:
-    - Cambiar constantes de Hertz y damping por lo que es
-    - sol analítica trompo
-    - Agradecimiento a ricardo
+    - Use ν instead of G
+    - Re run all examples
+    - Complete documentation
+    - Revisit friction force and shear tangent force
+    - Thorsten Damping model
+    - Fracture Model 
+    - Time step stimate
 """
 
-# Fix Triangle_Beam.jl
-# Complete docs Beams.jl
 
 # Delete old data files
 # Check if directory exists

@@ -12,11 +12,11 @@ function Actions_After_Time_Step(particles::StructVector{<:AbstractParticle},
     static::Bool,
     t::Float64)
     
-    #v::Float64 = 1.0e-3
-    #y::Float64 = 8.35 - v*t
-    #conf.walls[4] = Set_Q(conf.walls[4], SVector(0.0, y ,0.0))
+    v::Float64 = 1.0e-3
+    y::Float64 = 6.8 - v*t
+    conf.walls[4] = Set_Q(conf.walls[4], SVector(0.0, y ,0.0))
 
-    #println(y,",", conf.walls[4].F[2])
+    println(y,",", conf.walls[4].F[2])
 
     nothing
 end
@@ -34,7 +34,7 @@ function main(t)
 
     # Box dimensions
     Lx = 25
-    Ly = 25
+    Ly = 6.8
     Lz = 25
     walls = Create_Box(Lx, Ly, Lz, E=1e15, G=1e15)
     
@@ -42,12 +42,12 @@ function main(t)
     conf = Config(t, dt, g=g, walls=walls, en=0.6, mu=0.4)
 
     # Load Particles
-    q = angle_to_quat(EulerAngles(0.0,0.0, π/2, :XYZ))
+    q = angle_to_quat(EulerAngles(π/2,0.0,0.0, :XYZ))
     particles = Particle[]
 
     for i in eachindex(x)
         rr = SVector(x[i], y[i], z[i])
-        rr = Lab_to_body(rr, q) + SVector(10.0, 7.2, 10.0)
+        rr = Lab_to_body(rr, q) + SVector(10.0, 0.2, 15.0)
         push!(particles, Particle(r=rr, v=zeros(3), w=zeros(3), E=1e7, G=1e7))
     end
 
@@ -55,8 +55,8 @@ function main(t)
     println("y,F")
 
     # Run the simulation
-    Propagate(particles, conf, vis_steps=1, file="Paraview/data", 
+    Propagate(particles, conf, vis_steps=10000, file="Paraview/data", 
         save=true, beam_forces=true)
 end
 
-main(200*1*0.0001);
+main(200*10000*0.0001);

@@ -1,6 +1,9 @@
 """
-Damping coeficient as a function of the coeficient of restitution.
+Damping coeficient as a function of the coeficient of restitution. Taken from:
 
+An investigation of the comparative behaviour of alternative contact force models during inelastic collisions by Colin Thornton 
+
+- en: Coeficient of restitution.
 """
 function γ(en::Float64)::Float64
     if en >= 1.0
@@ -71,7 +74,7 @@ function Compute_Inertia_Tensor(p::Particle, num::Int64=50000)::Matrix{Float64}
         end
     end
     return (p.m/T)*SMatrix{3,3}(Ixx, -Ixy, -Ixz, -Ixy, Iyy, -Ixy, -Ixy, Iyz, Izz)=#
-    (2*p.m*p.rad*p.rad/5)*SMatrix{3,3}(1.0I(3))
+    (2.0*p.m*p.rad*p.rad/5.0)*SMatrix{3,3}(1.0I(3))
 end
 
 
@@ -88,7 +91,7 @@ function Set_Inertia(p::Particle, num::Int64=50000)::Particle
     Inertia::Matrix{Float64} = Compute_Inertia_Tensor(p::Particle, num)
     II::SVector{3, Float64} = SVector{3, Float64}(abs.(eigvals(Inertia))) # Principal axis inertia tensor (diagonal M).
     index::SVector{3, Int64} = sortperm(II, rev=true) # convention: biggest value in x, smallest in z.
-    Axis::SMatrix{3,3, Float64} = SMatrix{3,3, Float64}(abs.(eigvecs(Inertia))[index,:]) # REVISAR ESTO
+    Axis::SMatrix{3,3, Float64} = SMatrix{3,3, Float64}(abs.(eigvecs(Inertia))[index,:]) # CHECK THIS!
     p = Set_I(p,II[index]) # sets the inertia in the principal axys
     p = Set_q(p,dcm_to_quat(DCM(transpose(Axis)))) # set the orientation of principal axis
     Set_q(p,p.q/norm(p.q)) # normalize the quaternion
@@ -167,6 +170,11 @@ end
 
 """
 Creates the walls needed for a box with a corner in (0,0,0).
+- lx: Dimension of the box in the x direction.
+- ly: Dimension of the box in the y direction.
+- lz: Dimension of the box in the z direction.
+- E: Young modulus for the walls.
+- G: Shear modulus for the walls.
 """
 function Create_Box(lx::Real, ly::Real, lz::Real; E::Real=1.0e6, G::Real=1.0e6)::Vector{Wall}
     Lx::Float64 = Float64(lx)
@@ -192,12 +200,12 @@ end
 """
 
 """
-function Actions_Before_Time_Step(particles::StructVector{<:AbstractParticle}, 
+function Actions_Before_Time_Step!(particles::StructVector{<:AbstractParticle}, 
     conf::Config, 
     neighborlist::Vector{Tuple{Int64, Int64, Float64}},
-    cundall_particles::ExtendableSparseMatrix{Float64, Int64},
-    cundall_walls::ExtendableSparseMatrix{Float64, Int64},
-    beam_bonds::ExtendableSparseMatrix{Int64, Int64},
+    friction_spring_particles::Dict{Tuple{Int64, Int64}, SVector{3, Float64}},
+    friction_spring_walls::Dict{Tuple{Int64, Int64}, SVector{3, Float64}},
+    beam_bonds::Dict{Tuple{Int64, Int64}, Int64},
     beams::StructVector{Beam},
     fixed_spheres::Vector{Int64},
     static::Bool,
@@ -208,12 +216,12 @@ end
 """
 
 """
-function Actions_After_Time_Step(particles::StructVector{<:AbstractParticle}, 
+function Actions_After_Time_Step!(particles::StructVector{<:AbstractParticle}, 
     conf::Config, 
     neighborlist::Vector{Tuple{Int64, Int64, Float64}},
-    cundall_particles::ExtendableSparseMatrix{Float64, Int64},
-    cundall_walls::ExtendableSparseMatrix{Float64, Int64},
-    beam_bonds::ExtendableSparseMatrix{Int64, Int64},
+    friction_spring_particles::Dict{Tuple{Int64, Int64}, SVector{3, Float64}},
+    friction_spring_walls::Dict{Tuple{Int64, Int64}, SVector{3, Float64}},
+    beam_bonds::Dict{Tuple{Int64, Int64}, Int64},
     beams::StructVector{Beam},
     fixed_spheres::Vector{Int64},
     static::Bool,
@@ -221,10 +229,101 @@ function Actions_After_Time_Step(particles::StructVector{<:AbstractParticle},
     nothing
 end
 
-function sparcify(v::Float64)::Float64
-    if v < 1.0e-14
+"""
+"""
+function sparcify(v::Float64, eps::Float64=5.0e-14)::Float64
+    if abs(v) < eps
         return 0.0
     else
         return v
     end
 end
+
+function CalculateA(target_e::Float64, target_v::Float64, Eeff::Float64, Reff::Float64, meff::Float64)::Float64
+
+    function Target_Epsilon(v_star::Float64)::Float64
+        Epsilon(v_star)-target_e
+    end
+
+    target_v_star::Float64 = find_zero((Target_Epsilon, dEpsilon_dv), 1.0, Roots.Newton())
+
+    get_A(target_v, target_v_star, Eeff, Reff, meff)
+end
+
+function Epsilon(v_star::Float64)::Float64
+    # 3/6 coefficients
+    a_i::SVector{4, Float64} = SVector(1.0, 1.07232, 0.574198, 0.141552)
+    b_i::SVector{7, Float64} = SVector(1.0, 1.07232, 1.72765, 1.37842, 1.19449, 0.467273, 0.235585)
+    
+    # Initialize sum to 0
+    A::Float64 = 0.0
+    B::Float64 = 0.0
+    n::Float64 = 0.0
+
+    for i in a_i
+        A += i*v_star^n
+        n += 1.0
+    end
+    
+    n = 0.0
+    for i in b_i
+        B += i*v_star^n
+        n += 1.0
+    end
+    
+    return A/B
+end
+
+function dEpsilon_dv(v_star::Float64)::Float64
+    # 3/6 coefficients
+    a_i::SVector{4, Float64} = SVector(1.0, 1.07232, 0.574198, 0.141552)
+    b_i::SVector{7, Float64} = SVector(1.0, 1.07232, 1.72765, 1.37842, 1.19449, 0.467273, 0.235585)
+    
+    # Initialize sum to 0
+    A::Float64 = 0.0
+    B::Float64 = 0.0
+    dA::Float64 = 0.0
+    dB::Float64 = 0.0
+    n::Float64 = 0.0
+
+    for i in a_i
+        A += i*v_star^n
+        n += 1.0
+    end
+    
+    n = 0.0
+    for i in b_i
+        B += i*v_star^n
+        n += 1.0
+    end
+    
+    # Derivative
+    da_i::SVector{3, Float64} = SVector(1.07232, 0.574198, 0.141552)
+    db_i::SVector{6, Float64} = SVector(1.07232, 1.72765, 1.37842, 1.19449, 0.467273, 0.235585)
+    
+    n = 0.0
+    for i in da_i
+        dA += (n+1)*i*v_star^n
+        n += 1.0
+    end
+    
+    n = 0.0
+    for i in db_i
+        dB += (n+1)*i*v_star^n
+        n += 1.0
+    end
+    
+    return (dA*B - A*dB)/(B*B)
+end
+
+function get_A(v::Float64, v_star::Float64, Eeff::Float64, Reff::Float64, meff::Float64)::Float64
+    rho::Float64 = 4.0*Eeff*sqrt(Reff)/3.0
+    beta::Float64 = v_star*v_star*v^(-0.2)      # ^-1/5 = ^-2/10
+    2.0*beta*(rho/meff)^(-0.4)/3.0              # ^-2/5
+end
+        
+function get_v_star(v::Float64, A::Float64, Eeff::Float64, Reff::Float64, meff::Float64)::Float64
+    rho::Float64 = 4.0*Eeff*sqrt(Reff)/3.0
+    beta::Float64 = 3.0*A*(rho/meff)^(0.4)/2.0; # ^2/5
+    sqrt(beta)*v^(0.1)                          # ^1/10
+end 

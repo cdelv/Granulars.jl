@@ -15,8 +15,8 @@ abstract type AbstractParticle end
 
 """
 Struct to represent particles. It's immutable for performance. Inspired from AtomsBase.jl. 
-I use acceleration, that way, I can avoid dividing by the mass every step. Due to the rotation algorithm,
-I use torque as the inertia is used in a different way. 
+I use acceleration, that way, I can avoid dividing by the mass every step. 
+Due to the rotation algorithm, I use torque as the inertia is used in a different way than mass. 
 - r: position of the center of mass of the particle.
 - v: velocity of the center of mass of the particle.
 - a: acceleration of the center of mass of the particle.
@@ -28,7 +28,7 @@ I use torque as the inertia is used in a different way.
 - rad: radius of the particle.
 - E: Young Modulus.
 - G: Shear Modulus. 
-- ν: Poisson ratio
+- ν: Poisson ratio.
 """
 struct Particle <: AbstractParticle
     r::SVector{3, Float64}
@@ -54,7 +54,7 @@ end
 =#
 """
 These constructors are just for convenience. This way, one doesn't need to specify 
-every parameter to create a particle. However, they aren't type-stable. 
+every parameter to create a particle.
 
 Example -> Particle([0,0,0],[0,0,0],1,rad=1)
 """
@@ -144,8 +144,8 @@ METHODS FOR MD
 =# 
 """
 For Newton's equations of motion integration.
-Most methods like Leapfrog, Verlet, Forest-Ruth, etc. work similarly. This method allows 
-changing the integration algorithm quickly.
+Most methods like Leapfrog, Verlet, Forest-Ruth, etc. work similarly. 
+These method allows changing the integration algorithm quickly.
 - r: Position vector.
 - v: Velocity vector.
 - dt: Time step.
@@ -192,7 +192,10 @@ function Move_w(w::SVector{3, Float64}, τ::SVector{3, Float64}, II::SVector{3, 
 end
 
 """
-Update orientation according to MD algortihm. 
+Update orientation according to MD algortihm. I use: 
+
+- Algorithm for numerical integration of the rigid-body equations of motion, Igor P. Omelyan, 1998
+
 - q: quaternion that represents the orientation.
 - w: Angular velocity vector.
 - dt: Time step.
@@ -202,11 +205,11 @@ function Move_q(q::Quaternion{Float64}, w::SVector{3, Float64}, dt::Float64)::Qu
     Q_q_dt::Quaternion{Float64} = dquat(q, w)
     a1::Float64 = 1.0 - dt*dt*dot(w,w)/16.0
     a2::Float64 = 1.0 + dt*dt*dot(w,w)/16.0
-    return unitary((a1*q + Q_q_dt*dt)/a2)
+    return (a1*q + Q_q_dt*dt)/a2
 end
 
 #=
-SET METHODS
+SET METHODS FOR PARTICLE
 =#
 function Set_r(p::Particle, r::SVector{3, Float64})::Particle
     return Particle(r,p.v,p.a,p.q,p.w,p.τ,p.m,p.I,p.rad,p.E,p.G,p.ν)

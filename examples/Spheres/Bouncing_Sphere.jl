@@ -7,16 +7,15 @@ function main(t)
     Lz = 25
 
     # time step
-    dt = 0.001
+    dt = 0.0001
 
     walls = Create_Box(Lx,Ly,Lz)
-    walls = [Wall([0.0,1.0,0.0], [0.0,0.0,0.0])]
 
-    conf = Config(t, dt, walls=walls)
+    conf = Config(t, dt, walls=walls, en=0.9, v=1.0, mu=0.6)
 
-    p = Particle(r=[10,10,10])
+    p1 = Particle(r=[10,10,10], w=[0,0,-5])
 
-    Propagate([p], conf, vis_steps=200, file="Paraview/data", save=true)
+    Propagate([p1], conf, vis_steps=10000, file="Paraview/data", save=true)
 end
 
-@time main(200*0.001*200);
+@time main(200*0.0001*10000);

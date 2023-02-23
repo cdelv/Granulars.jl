@@ -1,4 +1,3 @@
-
 """
 Structure that stores information of the beams. The beams are assumed cilindrical. 
 - E: Young Modulus.
@@ -7,8 +6,8 @@ Structure that stores information of the beams. The beams are assumed cilindrica
 - I: Second area moment. 
 - A: Cross section.
 - L: Length of the beam.
-- Δq0i: 
-- Δq0j: 
+- Δq0i: Initial twisting of the ith particle with respect to the beam.
+- Δq0j: Initial twisting of the jth particle with respect to the beam.
 """
 struct Beam
     E::Float64
@@ -25,9 +24,10 @@ end
 
 """
 Convenience constructor for Beam 
-- p_i:
-- p_j:
-- conf:
+- p_i: Particle on one of the ends of the beam.
+- p_j: Particle on one of the ends of the beam.
+
+TO DO: THINK ON A BETTER CRITERIA FOR BEAM PROPERTIES
 
 Formula for the corss section rad:
 https://mathworld.wolfram.com/Sphere-SphereIntersection.html
@@ -35,14 +35,14 @@ https://mathworld.wolfram.com/Sphere-SphereIntersection.html
 quaternion reference frame difference:
 https://math.stackexchange.com/questions/1884215/how-to-calculate-relative-pitch-roll-and-yaw-given-absolutes
 """
-function Beam(p_i::Particle, p_j::Particle, conf::Config)::Beam
+function Beam(p_i::Particle, p_j::Particle)::Beam
     L::Float64 = norm(p_i.r - p_j.r)
-    r::Float64 = sqrt((-L + p_i.rad - p_j.rad)*(-L - p_i.rad + p_j.rad)*(-L + p_i.rad + p_j.rad)*(L + p_i.rad + p_j.rad))/(2*L)
+    r::Float64 = sqrt((-L + p_i.rad - p_j.rad)*(-L - p_i.rad + p_j.rad)*(-L + p_i.rad + p_j.rad)*(L + p_i.rad + p_j.rad))/(2.0*L)
 
     # we assume a cilindrical beam
     A::Float64 = π*r*r
-    J::Float64 = A*A/(2*π) # π*r^4/2 -> Torsion constant.
-    I::Float64 = J/2      # π*r^4/4 -> Second area moment. Iy = Iz.
+    J::Float64 = A*A/(2.0*π) # π*r^4/2 -> Torsion constant.
+    I::Float64 = J/2.0       # π*r^4/4 -> Second area moment. Iy = Iz.
     
     # Diference between the particle and beam frame. They are fixed and move the same amount.
     Δq0i::Quaternion{Float64} = Beam_Orientation(unitary(p_j.r - p_i.r)) ∘ inv(p_i.q) # Defined in Utils.jl
@@ -51,6 +51,7 @@ function Beam(p_i::Particle, p_j::Particle, conf::Config)::Beam
     Δq0j::Quaternion{Float64} = Beam_Orientation(unitary(p_j.r - p_i.r)) ∘ inv(p_j.q) # Defined in Utils.jl
 
     # Average Young and shear modulus
+    # TO DO: THINK ON A BETTER CRITERIA
     Eij::Float64 = 0.5*(p_i.E + p_j.E)
     Gij::Float64 = 0.5*(p_i.G + p_j.G)
 
@@ -59,15 +60,13 @@ end
 
 """
 Creates beams between all intersecting particles
-- neighborlist:
-- conf:
-- beam_bonds:
-- beams:
+- neighborlist: Neighbor list for particle-to-particle interaction force calculations.
+- beam_bonds: Dictionary that stores wich beam connects with each particle pair.
+- beams: StructArray of beams between particles.
 """
-function Create_beams(particles::StructVector{Particle}, 
+function Create_beams!(particles::StructVector{Particle}, 
     neighborlist::Vector{Tuple{Int64, Int64, Float64}}, 
-    conf::Config,
-    beam_bonds::ExtendableSparseMatrix{Int64, Int64},
+    beam_bonds::Dict{Tuple{Int64, Int64}, Int64},
     beams::Vector{Beam})
 
     k::Int64 = 1
@@ -82,8 +81,8 @@ function Create_beams(particles::StructVector{Particle},
 
         # Check for contact. Remember that the neighborlist hass a bigger cuttof. 
         if s > 0.0
-            beam_bonds[i,j] = k
-            push!(beams, Beam(particles[i], particles[j], conf))
+            beam_bonds[(i,j)] = k
+            push!(beams, Beam(particles[i], particles[j]))
             k+=1
         end
     end
@@ -92,17 +91,21 @@ function Create_beams(particles::StructVector{Particle},
 end
 
 """
-DESCRIPTION:
+Calculates the beam forces
 
 - particles: StructArray of particles.
-- i:
-- j:
-- k:
+- beam_bonds: Dictionary that stores wich beam connects with each particle pair.
+- i: Index of the ith particle that conforms the beam.
+- j: Index of the jth particle that conforms the beam.
+- k: Index of the beam that corresponds to the pair of particles (i,j).
+
+TO DO: CHEK IF UNITARY(Q) IS NECESARY
+TO DO: DO WE NEED TO USE THE 2 ENDS OF THE BEAM?
 
 quaternion reference frame difference
 https://math.stackexchange.com/questions/1884215/how-to-calculate-relative-pitch-roll-and-yaw-given-absolutes
 """
-function Beam_Force(particles::StructVector{Particle}, 
+function Beam_Force!(particles::StructVector{Particle}, 
     beams::StructVector{Beam}, i::Int64, j::Int64, k::Int64)
     
     # Beam Orientation in the i particle
@@ -113,6 +116,7 @@ function Beam_Force(particles::StructVector{Particle},
 
     # Vector that goes from the i particle to the j particle in the Beam frame
     # Substracting (L,0,0) gets the displacement diference
+    # Do we need the 2 ends?
     @inbounds Δri::SVector{3, Float64} = Lab_to_body(particles.r[j]-particles.r[i], qbi) - SVector(beams.L[k], 0.0, 0.0)
     @inbounds Δrj::SVector{3, Float64} = Lab_to_body(particles.r[j]-particles.r[i], qbj) - SVector(beams.L[k], 0.0, 0.0)
     Δr::SVector{3, Float64} = 0.5*(Δri+Δrj)
@@ -128,17 +132,17 @@ function Beam_Force(particles::StructVector{Particle},
     # Analitic sol of displacement times the stifness matrix.
     @inbounds F::SVector{12,Float64} = (beams.E[k]/(beams.L[k]*beams.L[k]*beams.L[k]))*SVector(
         beams.A[k]*Δr[1]*beams.L[k]*beams.L[k],
-        12*Δr[2]*beams.I[k],
-        12*Δr[3]*beams.I[k],
+        12.0*Δr[2]*beams.I[k],
+        12.0*Δr[3]*beams.I[k],
         Δϕ.a1*beams.G[k]*beams.J[k]*beams.L[k]*beams.L[k]/beams.E[k],
-        Δϕ.a2*beams.I[k]*beams.L[k]*beams.L[k] - 6*Δr[3]*beams.I[k]*beams.L[k],
-        Δϕ.a3*beams.I[k]*beams.L[k]*beams.L[k] + 6*Δr[2]*beams.I[k]*beams.L[k],
+        Δϕ.a2*beams.I[k]*beams.L[k]*beams.L[k] - 6.0*Δr[3]*beams.I[k]*beams.L[k],
+        Δϕ.a3*beams.I[k]*beams.L[k]*beams.L[k] + 6.0*Δr[2]*beams.I[k]*beams.L[k],
         -beams.A[k]*Δr[1]*beams.L[k]*beams.L[k],
-        -12*Δr[2]*beams.I[k],
-        -12*Δr[3]*beams.I[k],
+        -12.0*Δr[2]*beams.I[k],
+        -12.0*Δr[3]*beams.I[k],
         -Δϕ.a1*beams.G[k]*beams.J[k]*beams.L[k]*beams.L[k]/beams.E[k],
-        -Δϕ.a2*beams.I[k]*beams.L[k]*beams.L[k] - 6*Δr[3]*beams.I[k]*beams.L[k],
-        -Δϕ.a3*beams.I[k]*beams.L[k]*beams.L[k] + 6*Δr[2]*beams.I[k]*beams.L[k],
+        -Δϕ.a2*beams.I[k]*beams.L[k]*beams.L[k] - 6.0*Δr[3]*beams.I[k]*beams.L[k],
+        -Δϕ.a3*beams.I[k]*beams.L[k]*beams.L[k] + 6.0*Δr[2]*beams.I[k]*beams.L[k],
         )
 
     # Damping force according to Raleigh damping model BROKEN!!!
@@ -154,7 +158,6 @@ function Beam_Force(particles::StructVector{Particle},
     # Add forces and torques to the particles.
     @inbounds particles.a[i] += Body_to_lab(SVector(F[1], F[2], F[3]), qbi)/particles.m[i] 
     @inbounds particles.τ[i] += Lab_to_body(Body_to_lab(SVector(F[4], F[5], F[6]), qbi), particles.q[i])
-
     @inbounds particles.a[j] += Body_to_lab(SVector(F[7], F[8], F[9]), qbi)/particles.m[j]
     @inbounds particles.τ[j] += Lab_to_body(Body_to_lab(SVector(F[10],F[11],F[12]), qbi), particles.q[j])
     
@@ -163,7 +166,7 @@ end
 
 
 """
-Computes the stifness matrix of the beam element
+Computes the stifness matrix of a beam element.
 - A: Cross section.
 - L: Length of the beam.
 - E: Young Modulus.

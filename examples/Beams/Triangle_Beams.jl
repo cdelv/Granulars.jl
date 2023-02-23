@@ -25,7 +25,7 @@ function main(t)
     walls = [W1,W2,W3,W4,W5,W6]
     
     # Create config
-    conf = Config(t, dt, g=g, walls=walls, E=10000, G=10000)
+    conf = Config(t, dt, g=g, walls=walls, en=0.8, mu=0.4)
 
     # Create particles
     p1 = Particle(r=[10, 10, 10], v=[0.0,0.0,0], w=[0,0,0], rad=2.0)

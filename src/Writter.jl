@@ -14,7 +14,10 @@ function Save_step(particles::StructVector{Particle}, file::String, i::Int, t::F
     H = ["ID","t","x","y","z","vx","vy","vz","ax","ay","az","a1","a2","a3","wx","wy","wz","τx","τy","τz","m","Ix","Iy","Iz","rad"]
 
     # Arrange data for printing
-    data = Proces_Particles.(1:length(particles), t, particles, rot_seq)
+    data = Vector{Float64}[]
+    for i in eachindex(particles)
+        push!(data, Proces_Particles(i, t, particles[i], rot_seq))
+    end
 
     # Create the table to print.
     Table = CSV.Tables.table(reduce(hcat, data)')
