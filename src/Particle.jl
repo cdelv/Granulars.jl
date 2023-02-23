@@ -64,9 +64,9 @@ function Particle(r::Union{Vector{<:Real}, SVector{3}},
     m::Real; 
     rad::Real=1.0, 
     E::Real=1.0e6, 
-    G::Real=1.0e6)::Particle
+    ν::Real=0.2)::Particle
 
-    ν::Float64 = Float64(E/(2.0*G) - 1.0) # Poisson ratio
+    G::Float64 = Float64(E/(2.0*(1.0+ν)))
     p::Particle = Particle(SVector{3,Float64}(r),
         SVector{3,Float64}(v),
         zeros(SVector{3}),
@@ -77,8 +77,7 @@ function Particle(r::Union{Vector{<:Real}, SVector{3}},
         ones(SVector{3}),
         Float64(rad),
         Float64(E),
-        Float64(G), 
-        ν)
+        G, Float64(ν))
     p = Set_Inertia(p) # Adds the innertia tensor and particle orientation. Defined in Utils.jl
     Set_w(p,Lab_to_body(w,p.q))
 end
@@ -91,9 +90,9 @@ function Particle(r::Union{Vector{<:Real}, SVector{3}},
     m::Real=1.0, 
     rad::Real=1.0, 
     E::Real=1.0e6, 
-    G::Real=1.0e6)::Particle
+    ν::Real=0.2)::Particle
 
-    ν::Float64 = Float64(E/(2.0*G) - 1.0) # Poisson ratio
+    G::Float64 = Float64(E/(2.0*(1.0+ν)))
     p::Particle = Particle(SVector{3,Float64}(r),
         SVector{3,Float64}(v),
         zeros(SVector{3}),
@@ -104,7 +103,7 @@ function Particle(r::Union{Vector{<:Real}, SVector{3}},
         ones(SVector{3}),
         Float64(rad),
         Float64(E),
-        Float64(G), ν)
+        G, Float64(ν))
     Set_Inertia(p) # Adds the innertia tensor and particle orientation. Defined in Utils.jl
 end
 
@@ -121,9 +120,9 @@ function Particle(;r::Union{Vector{<:Real}, SVector{3}}=[0.0,0.0,0.0],
     I::Union{Vector{<:Real}, SVector{3}}=[1.0,1.0,1.0], 
     rad::Real=1.0, 
     E::Real=1.0e6, 
-    G::Real=1.0e6)::Particle
+    ν::Real=0.2)::Particle
 
-    ν::Float64 = Float64(E/(2.0*G) - 1.0) # Poisson ratio
+    G::Float64 = Float64(E/(2.0*(1.0+ν)))
     p::Particle = Particle(SVector{3,Float64}(r),
         SVector{3,Float64}(v),
         zeros(SVector{3}),
@@ -134,7 +133,7 @@ function Particle(;r::Union{Vector{<:Real}, SVector{3}}=[0.0,0.0,0.0],
         SVector{3,Float64}(I),
         Float64(rad),
         Float64(E),
-        Float64(G), ν)
+        G, Float64(ν))
     p = Set_Inertia(p) # Adds the innertia tensor and particle orientation. Defined in Utils.jl
     Set_w(p,Lab_to_body(p.w,p.q))
 end
@@ -242,10 +241,10 @@ function Set_rad(p::Particle, rad::Float64)::Particle
     return Particle(p.r,p.v,p.a,p.q,p.w,p.τ,p.m,p.I,rad,p.E,p.G,p.ν)
 end
 function Set_E(p::Particle, E::Float64)::Particle
-    ν::Float64 = E/(2.0*p.G) - 1.0
-    return Particle(p.r,p.v,p.a,p.q,p.w,p.τ,p.m,p.I,p.rad,E,p.G,ν)
+    G::Float64 = E/(2.0*(1.0+ν))
+    return Particle(p.r,p.v,p.a,p.q,p.w,p.τ,p.m,p.I,p.rad,E,G,p.ν)
 end
-function Set_G(p::Particle, G::Float64)::Particle
-    ν::Float64 = p.E/(2.0*G) - 1.0
+function Set_ν(p::Particle, ν::Float64)::Particle
+    G::Float64 = E/(2.0*(1.0+ν))
     return Particle(p.r,p.v,p.a,p.q,p.w,p.τ,p.m,p.I,p.rad,p.E,G,ν)
 end

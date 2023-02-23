@@ -176,22 +176,22 @@ Creates the walls needed for a box with a corner in (0,0,0).
 - E: Young modulus for the walls.
 - G: Shear modulus for the walls.
 """
-function Create_Box(lx::Real, ly::Real, lz::Real; E::Real=1.0e6, G::Real=1.0e6)::Vector{Wall}
+function Create_Box(lx::Real, ly::Real, lz::Real; E::Real=1.0e6, ν::Real=0.2)::Vector{Wall}
     Lx::Float64 = Float64(lx)
     Ly::Float64 = Float64(ly)
     Lz::Float64 = Float64(lz)
 
     # X coordinate walls
-    W1::Wall = Wall(SVector(1.0,0.0,0.0), SVector(0.0,0.0,0.0), E=E, G=G)
-    W2::Wall = Wall(SVector(-1.0,0.0,0.0),SVector(Lx,0.0,0.0), E=E, G=G)
+    W1::Wall = Wall(SVector(1.0,0.0,0.0), SVector(0.0,0.0,0.0), E=E, ν=ν)
+    W2::Wall = Wall(SVector(-1.0,0.0,0.0),SVector(Lx,0.0,0.0), E=E, ν=ν)
     
     # Y coordinate walls
-    W3::Wall = Wall(SVector(0.0,1.0,0.0), SVector(0.0,0.0,0.0), E=E, G=G)
-    W4::Wall = Wall(SVector(0.0,-1.0,0.0),SVector(0.0,Ly,0.0), E=E, G=G)
+    W3::Wall = Wall(SVector(0.0,1.0,0.0), SVector(0.0,0.0,0.0), E=E, ν=ν)
+    W4::Wall = Wall(SVector(0.0,-1.0,0.0),SVector(0.0,Ly,0.0), E=E, ν=ν)
     
     # Z coordinate walls
-    W5::Wall = Wall(SVector(0.0,0.0,1.0), SVector(0.0,0.0,0.0), E=E, G=G)
-    W6::Wall = Wall(SVector(0.0,0.0,-1.0),SVector(0.0,0.0,Lz), E=E, G=G)
+    W5::Wall = Wall(SVector(0.0,0.0,1.0), SVector(0.0,0.0,0.0), E=E, ν=ν)
+    W6::Wall = Wall(SVector(0.0,0.0,-1.0),SVector(0.0,0.0,Lz), E=E, ν=ν)
     
     [W1,W2,W3,W4,W5,W6]
 end

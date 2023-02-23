@@ -22,9 +22,6 @@ include("Utils.jl")
 
 """
 Tests Ideas:
-    - Use ν instead of G
-    - Re run all examples
-    - Complete documentation
     - Revisit friction force and shear tangent force
     - Thorsten Damping model
     - Fracture Model 

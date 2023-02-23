@@ -6,10 +6,10 @@ function main(t)
     g = [0.0,0.0,0.0]
     
     # Create config
-    conf = Config(t, dt, g=g, E=1000, G=1000)
+    conf = Config(t, dt, g=g)
 
-    p1 = Particle(r=[10, 10, 10], v=[0.0,0.0,0], w=[0,0,0], rad=2.0)
-    p2 = Particle(r=[13, 10, 10], v=[10.0,0.0,0], w=[0,0,0], rad=2.0)
+    p1 = Particle(r=[10, 10, 10], v=[0.0,0.0,0], w=[0,0,0], rad=2.0, E=1000, ν=-0.5)
+    p2 = Particle(r=[13, 10, 10], v=[10.0,0.0,0], w=[0,0,0], rad=2.0, E=1000, ν=-0.5)
 
     # Run the simulation
     Propagate([p1,p2], conf, vis_steps=50, file="Paraview/data", 

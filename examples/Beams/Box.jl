@@ -9,7 +9,7 @@ function main(t)
     Lx = 25
     Ly = 25
     Lz = 25
-    walls = Create_Box(Lx,Ly,Lz, E=1e9, G=1e9)
+    walls = Create_Box(Lx,Ly,Lz, E=1e9, ν=-0.5)
     
     # Create config
     conf = Config(t, dt, g=g, walls=walls)
@@ -28,7 +28,7 @@ function main(t)
         for j in 1:ny
             for k in 1:nz 
                 rr = Lab_to_body(SVector(9.0 + i*dx, 4.5 + j*dy, 9.0 + k*dz), q)
-                push!(particles, Particle(r=rr, E=9e3, G=9e3))
+                push!(particles, Particle(r=rr, E=9e3, ν=-0.2))
             end
         end
     end

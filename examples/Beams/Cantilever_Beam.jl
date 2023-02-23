@@ -21,11 +21,11 @@ function main(t)
     
     # Create config
     walls = walls = Create_Box(50,50,50)
-    conf = Config(t, dt, g=g, walls=walls, E=800000, G=800000)
+    conf = Config(t, dt, g=g, walls=walls)
     particles = Particle[]
 
     for i in 1:n
-        p = Particle(r=[5+i*dx, 45, 5], v=[0.0,0.0,0.0], w=[0.0,0.0,0.0], rad=rad, m=m)
+        p = Particle(r=[5+i*dx, 45, 5], v=[0.0,0.0,0.0], w=[0.0,0.0,0.0], rad=rad, m=m, E=800000, ν=0.2)
         push!(particles, p)
     end
     

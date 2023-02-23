@@ -28,12 +28,12 @@ For convenience, it normalizes the normal vector automatically.
 function Wall(n::Union{Vector{<:Real}, SVector{3}}, 
     q::Union{Vector{<:Real}, SVector{3}}; 
     E::Real=1.0e6, 
-    G::Real=1.0e6)::Wall
+    ν::Real=0.2)::Wall
     
-    ν::Float64 = Float64(E/(2.0*G) - 1.0) # Poisson ratio
+    G::Float64 = Float64(E/(2.0*(1.0+ν)))
 	N::SVector{3,Float64} = normalize(SVector{3,Float64}(n)) # error if [0,0,0]
 	Q::SVector{3,Float64} = SVector{3,Float64}(q)
-	Wall(N,Q,Float64(E),Float64(G),ν,zeros(SVector{3}))
+	Wall(N,Q,Float64(E),G,Float64(ν),zeros(SVector{3}))
 end
 
 #=
@@ -46,11 +46,11 @@ function Set_Q(w::Wall, Q::SVector{3, Float64})::Wall
     return Wall(w.n,Q,w.E,w.G,w.ν,w.F)
 end
 function Set_E(w::Wall, E::Float64)::Wall
-    ν::Float64 = E/(2.0*w.G) - 1.0
-    return Wall(w.n,w.Q,E,w.G,ν,w.F)
+    G::Float64 = E/(2.0*(1.0+w.ν))
+    return Wall(w.n,w.Q,E,G,w.ν,w.F)
 end
-function Set_G(w::Wall, G::Float64)::Wall
-    ν::Float64 = w.E/(2.0*G) - 1.0
+function Set_ν(w::Wall, ν::Float64)::Wall
+    G::Float64 = w.E/(2.0*(1.0+ν))
     return Wall(w.n,w.Q,w.E,G,ν,w.F)
 end
 function Set_F(w::Wall, F::SVector{3, Float64})::Wall

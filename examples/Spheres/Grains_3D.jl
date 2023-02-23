@@ -3,7 +3,7 @@ using Distributions
 
 function main(t)
     # Simulation parameters
-    dt = 0.001
+    dt = 0.0001
     g = [0.0,-9.0,0.0]
     
     # Box dimensions
@@ -38,10 +38,10 @@ function main(t)
     end
     
     # Create config
-    conf = Config(t, dt, walls=walls, g=g, gamma=5)
+    conf = Config(t, dt, walls=walls, g=g, en=0.8, v=0.3, mu=0.3)
     
     # Run the simulation
-    Propagate(particles, conf, vis_steps=60, file="Paraview/data", save=true)
+    Propagate(particles, conf, vis_steps=200, file="Paraview/data", save=true)
 end
 
-@time main(200*60*0.001);
+@time main(200*200*0.0001);
