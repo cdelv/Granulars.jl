@@ -8,6 +8,8 @@ Structure that stores information of the beams. The beams are assumed cilindrica
 - L: Length of the beam.
 - Δq0i: Initial twisting of the ith particle with respect to the beam.
 - Δq0j: Initial twisting of the jth particle with respect to the beam.
+- K: Stifness matrix.
+- C: Damping matrix.
 """
 struct Beam
     E::Float64
@@ -20,29 +22,43 @@ struct Beam
 
     Δq0i::Quaternion{Float64}
     Δq0j::Quaternion{Float64}
+
+    K::SMatrix{12, 12, Float64, 144}
+    C::SMatrix{12, 12, Float64, 144}
 end
 
 """
-Convenience constructor for Beam 
+Convenience constructor for Beam.
 - p_i: Particle on one of the ends of the beam.
 - p_j: Particle on one of the ends of the beam.
+- conf: Simulation configuration, its a Conf struct, implemented in Configuration.jl. 
 
 TO DO: THINK ON A BETTER CRITERIA FOR BEAM PROPERTIES
 
 Formula for the corss section rad:
 https://mathworld.wolfram.com/Sphere-SphereIntersection.html
 
-quaternion reference frame difference:
+- quaternion reference frame difference:
 https://math.stackexchange.com/questions/1884215/how-to-calculate-relative-pitch-roll-and-yaw-given-absolutes
+
+NORMAL MODES:
+- Vibrations of a Free-Free Beam by Mauro Caresta:
+http://www.varg.unsw.edu.au/Assets/link%20pdfs/Beam_vibration.pdf
+
+- Continuous Systems with Longitudinal Vibration by Tom Irvine:
+https://endaq.com/pages/continuous-systems-with-longitudinal-vibration
+
+- Torsional Vibrations in Free-Free Bar with Rectangular Cross-Section by Daniel A. Russell:
+https://www.acs.psu.edu/drussell/Demos/Torsional/torsional.html
 """
-function Beam(p_i::Particle, p_j::Particle)::Beam
+function Beam(p_i::Particle, p_j::Particle, conf::Config)::Beam
     L::Float64 = norm(p_i.r - p_j.r)
-    r::Float64 = sqrt((-L + p_i.rad - p_j.rad)*(-L - p_i.rad + p_j.rad)*(-L + p_i.rad + p_j.rad)*(L + p_i.rad + p_j.rad))/(2.0*L)
+    r::Float64 = sqrt(4.0*L^2*p_i.rad^2 - (L^2 - p_j.rad^2 + p_i.rad^2 )^2 )/(2.0*L)
 
     # we assume a cilindrical beam
     A::Float64 = π*r*r
     J::Float64 = A*A/(2.0*π) # π*r^4/2 -> Torsion constant.
-    I::Float64 = J/2.0       # π*r^4/4 -> Second area moment. Iy = Iz.
+    II::Float64 = J/2.0       # π*r^4/4 -> Second area moment. Iy = Iz.
     
     # Diference between the particle and beam frame. They are fixed and move the same amount.
     Δq0i::Quaternion{Float64} = Beam_Orientation(unitary(p_j.r - p_i.r)) ∘ inv(p_i.q) # Defined in Utils.jl
@@ -55,7 +71,43 @@ function Beam(p_i::Particle, p_j::Particle)::Beam
     Eij::Float64 = 0.5*(p_i.E + p_j.E)
     Gij::Float64 = 0.5*(p_i.G + p_j.G)
 
-    Beam(Eij, Gij, J, I, A, L, unitary(Δq0i), unitary(Δq0j))
+    # Beam density
+    # TO DO: THINK ON A BETTER CRITERIA
+    ρ::Float64 = 0.5*(Get_Density(p_i) + Get_Density(p_j))
+
+    # Compute Mass ans Stifness Matrix
+    K::SMatrix{12, 12, Float64, 144} = Stifness_Matrix(A, L, Eij, Gij, II, J)
+    M::SMatrix{12, 12, Float64, 144} = Mass_Matrix(A, L, ρ)
+
+    # Compute first 3 normal modes on each direction
+    # This is just an estimate. The real way to do it is to solve the eigenvalue problem
+    # det(K - ω²M) = 0
+    # But my matrices are too ilconditioned.
+    ω::SVector{9, Float64} = sort(SVector(
+            sqrt(Eij*II/(ρ*A))*(4.73/L)^2,    # Transversal Free-Free beam
+            sqrt(Eij*II/(ρ*A))*(7.8532/L)^2,
+            sqrt(Eij*II/(ρ*A))*(10.9956/L)^2,
+            1.0*sqrt(Eij/ρ)/(4.0*π*L),        # Longitudinal Free-Free beam
+            2.0*sqrt(Eij/ρ)/(4.0*π*L),
+            3.0*sqrt(Eij/ρ)/(4.0*π*L),
+            1.0*sqrt(Gij*J/(ρ*II))/(4.0*π*L), # Torsional Free-Free beam
+            2.0*sqrt(Gij*J/(ρ*II))/(4.0*π*L),
+            3.0*sqrt(Gij*J/(ρ*II))/(4.0*π*L)
+        ))
+
+    # Pick first and (2-3) normal modes for computing the damping coefficents
+    ω1::Float64 = ω[1]
+    ω2::Float64 = ω[3]
+
+    # Compute Rayleigh damping coefficents
+    a0::Float64 = 2.0*conf.ζ*ω1*ω2/(ω1+ω2)
+    a1::Float64 = 2.0*conf.ζ/(ω1+ω2)
+
+    # Compute Rayleigh Damping Matrix.
+    C::SMatrix{12, 12, Float64, 144} = a0*M + a1*K
+
+    # Create Beam
+    Beam(Eij, Gij, J, II, A, L, unitary(Δq0i), unitary(Δq0j), K, C)
 end
 
 """
@@ -63,11 +115,12 @@ Creates beams between all intersecting particles
 - neighborlist: Neighbor list for particle-to-particle interaction force calculations.
 - beam_bonds: Dictionary that stores wich beam connects with each particle pair.
 - beams: StructArray of beams between particles.
+- conf: Simulation configuration, its a Conf struct, implemented in Configuration.jl. 
 """
 function Create_beams!(particles::StructVector{Particle}, 
     neighborlist::Vector{Tuple{Int64, Int64, Float64}}, 
     beam_bonds::Dict{Tuple{Int64, Int64}, Int64},
-    beams::Vector{Beam})
+    beams::Vector{Beam}, conf::Config)
 
     k::Int64 = 1
 
@@ -82,7 +135,7 @@ function Create_beams!(particles::StructVector{Particle},
         # Check for contact. Remember that the neighborlist hass a bigger cuttof. 
         if s > 0.0
             beam_bonds[(i,j)] = k
-            push!(beams, Beam(particles[i], particles[j]))
+            push!(beams, Beam(particles[i], particles[j], conf))
             k+=1
         end
     end
@@ -98,15 +151,15 @@ Calculates the beam forces
 - i: Index of the ith particle that conforms the beam.
 - j: Index of the jth particle that conforms the beam.
 - k: Index of the beam that corresponds to the pair of particles (i,j).
+- conf: 
 
 TO DO: CHEK IF UNITARY(Q) IS NECESARY
-TO DO: DO WE NEED TO USE THE 2 ENDS OF THE BEAM?
 
 quaternion reference frame difference
 https://math.stackexchange.com/questions/1884215/how-to-calculate-relative-pitch-roll-and-yaw-given-absolutes
 """
 function Beam_Force!(particles::StructVector{Particle}, 
-    beams::StructVector{Beam}, i::Int64, j::Int64, k::Int64)
+    beams::StructVector{Beam}, i::Int64, j::Int64, k::Int64, conf::Config)
     
     # Beam Orientation in the i particle
     @inbounds qbi::Quaternion{Float64} = unitary(beams.Δq0i[k] ∘ particles.q[i])
@@ -116,7 +169,6 @@ function Beam_Force!(particles::StructVector{Particle},
 
     # Vector that goes from the i particle to the j particle in the Beam frame
     # Substracting (L,0,0) gets the displacement diference
-    # Do we need the 2 ends?
     @inbounds Δri::SVector{3, Float64} = Lab_to_body(particles.r[j]-particles.r[i], qbi) - SVector(beams.L[k], 0.0, 0.0)
     @inbounds Δrj::SVector{3, Float64} = Lab_to_body(particles.r[j]-particles.r[i], qbj) - SVector(beams.L[k], 0.0, 0.0)
     Δr::SVector{3, Float64} = 0.5*(Δri+Δrj)
@@ -126,34 +178,18 @@ function Beam_Force!(particles::StructVector{Particle},
     Δϕ::EulerAngles{Float64} = quat_to_angle(Δq, :XYZ)      
 
     # Create the 12x12 transformation matrix and calculate forces and torques.
-    #@inbounds Δs::SVector{12,Float64} = 0.5*SVector(Δr[1], Δr[2], Δr[3], Δϕ.a1, Δϕ.a2, Δϕ.a3, -Δr[1], -Δr[2], -Δr[3], -Δϕ.a1, -Δϕ.a2, -Δϕ.a3)
-    #F::SVector{12,Float64} = Stifness_Matrix(beams.A[k], beams.L[k], beams.E[k], beams.G[k], beams.I[k], beams.J[k])*Δs
-
-    # Analitic sol of displacement times the stifness matrix.
-    @inbounds F::SVector{12,Float64} = (beams.E[k]/(beams.L[k]*beams.L[k]*beams.L[k]))*SVector(
-        beams.A[k]*Δr[1]*beams.L[k]*beams.L[k],
-        12.0*Δr[2]*beams.I[k],
-        12.0*Δr[3]*beams.I[k],
-        Δϕ.a1*beams.G[k]*beams.J[k]*beams.L[k]*beams.L[k]/beams.E[k],
-        Δϕ.a2*beams.I[k]*beams.L[k]*beams.L[k] - 6.0*Δr[3]*beams.I[k]*beams.L[k],
-        Δϕ.a3*beams.I[k]*beams.L[k]*beams.L[k] + 6.0*Δr[2]*beams.I[k]*beams.L[k],
-        -beams.A[k]*Δr[1]*beams.L[k]*beams.L[k],
-        -12.0*Δr[2]*beams.I[k],
-        -12.0*Δr[3]*beams.I[k],
-        -Δϕ.a1*beams.G[k]*beams.J[k]*beams.L[k]*beams.L[k]/beams.E[k],
-        -Δϕ.a2*beams.I[k]*beams.L[k]*beams.L[k] - 6.0*Δr[3]*beams.I[k]*beams.L[k],
-        -Δϕ.a3*beams.I[k]*beams.L[k]*beams.L[k] + 6.0*Δr[2]*beams.I[k]*beams.L[k],
-        )
-
-    # Damping force according to Raleigh damping model BROKEN!!!
-    #=
-    vi = Lab_to_body(particles.v[i], qbi)
-    vj = Lab_to_body(particles.v[j], qbi)
-    wi = Lab_to_body(Body_to_lab(particles.w[i],particles.q[i]), qbi)
-    wj = Lab_to_body(Body_to_lab(particles.w[j],particles.q[j]), qbi)
-    @inbounds V::SVector{12,Float64} = (vi[1], vi[2], vi[3], wi[1], wi[2], wi[3], vj[1], vj[2], vj[3], wj[1], wj[2], wj[3])
-    F -= (0.0*Stifness_Matrix(beams.A[k], beams.L[k], beams.E[k], beams.G[k], beams.I[k], beams.J[k]) + 1.0*Mass_Matrix(beams.A[k], beams.L[k], particles.m[i], particles.rad[i]))*V
-    =#
+    # Each extreme hass the same displacement but negative relative to the other one.
+    # The reference frame is in the center of the beam. 
+    @inbounds Δs::SVector{12,Float64} = 0.5*SVector(Δr[1], Δr[2], Δr[3], Δϕ.a1, Δϕ.a2, Δϕ.a3, -Δr[1], -Δr[2], -Δr[3], -Δϕ.a1, -Δϕ.a2, -Δϕ.a3)
+    @inbounds F::SVector{12,Float64} = beams.K[k]*Δs
+    
+    # Compute relative velocities and damping force.
+    if conf.beam_damping
+        @inbounds v::SVector{3, Float64} = Lab_to_body(particles.v[i], qbi) - Lab_to_body(particles.v[j], qbi)
+        @inbounds w::SVector{3, Float64} = Lab_to_body(Body_to_lab(particles.w[i],particles.q[i]), qbi) - Lab_to_body(Body_to_lab(particles.w[j],particles.q[j]), qbi)
+        @inbounds V::SVector{12,Float64} = SVector(v[1], v[2], v[3], w[1], w[2], w[3], -v[1], -v[2], -v[3], -w[1], -w[2], -w[3])
+        @inbounds F -= beams.C[k]*V
+    end
 
     # Add forces and torques to the particles.
     @inbounds particles.a[i] += Body_to_lab(SVector(F[1], F[2], F[3]), qbi)/particles.m[i] 
@@ -172,24 +208,27 @@ Computes the stifness matrix of a beam element.
 - E: Young Modulus.
 - G: Shear Modulus.
 - J: Torsion constant.  
+
+Taken from:
+Dynamic Analysis of Structures by John T. Katsikadelis: eq (11.9.9)
 """
 function Stifness_Matrix(A::Float64, L::Float64, E::Float64, G::Float64, I::Float64, J::Float64)::SMatrix{12, 12, Float64, 144}
     # we assume a cilindrical beam
     Iy::Float64 = I      # π*r^4/4 -> Second area moment.
     Iz::Float64 = I       # π*r^4/4 -> Second area moment.
-    return SMatrix{12,12}(
-        A*L*L, 0.0, 0.0, 0.0, 0.0, 0.0, -A*L*L, 0.0, 0.0, 0.0, 0.0, 0.0,
-        0.0, 12*Iz, 0.0, 0.0, 0.0, 6*L*Iz, 0.0, -12*Iz, 0.0, 0.0, 0.0, 6*L*Iz,
-        0.0, 0.0, 12*Iy, 0.0, -6*L*Iy, 0.0, 0.0, 0.0, -12*Iy, 0.0, -6*L*Iy, 0.0,
-        0.0, 0.0, 0.0, G*J*L*L/E, 0.0, 0.0, 0.0, 0.0, 0.0, -G*J*L*L/E, 0.0, 0.0,
-        0.0, 0.0, -6*L*Iy, 0.0, 4*L*L*Iy, 0.0, 0.0, 0.0, 6*L*Iy, 0.0, 2*L*L*Iy, 0.0,
-        0.0, 6*L*Iz, 0.0, 0.0, 0.0, 4*L*L*Iz, 0.0, -6*L*Iz, 0.0, 0.0, 0.0, 2*L*L*Iz,
-        -A*L*L, 0.0, 0.0, 0.0, 0.0, 0.0, A*L*L, 0.0, 0.0, 0.0, 0.0, 0.0,
-        0.0, -12*Iz, 0.0, 0.0, 0.0, -6*L*Iz, 0.0, 12*Iz, 0.0, 0.0, 0.0, -6*L*Iz,
-        0.0, 0.0, -12*Iy, 0.0, 6*L*Iy, 0.0, 0.0, 0.0, 12*Iy, 0.0, 6*L*Iy, 0.0,
-        0.0, 0.0, 0.0, -G*J*L*L/E, 0.0, 0.0, 0.0, 0.0, 0.0, G*J*L*L/E, 0.0, 0.0,
-        0.0, 0.0, -6*L*Iy, 0.0, 2*L*L*Iy, 0.0, 0.0, 0.0, 6*L*Iy, 0.0, 4*L*L*Iy, 0.0,
-        0.0, 6*L*Iz, 0.0, 0.0, 0.0, 2*L*L*Iz, 0.0, -6*L*Iz, 0.0, 0.0, 0.0, 4*L*L*Iz
+    return SMatrix{12, 12, Float64, 144}(
+        L*L*A ,      0.0,       0.0,        0.0,        0.0,        0.0, -L*L*A,       0.0,      0.0,        0.0,        0.0,        0.0,
+        0.0   ,  12.0*Iz,       0.0,        0.0,        0.0,   6.0*L*Iz,    0.0,  -12.0*Iz,      0.0,        0.0,        0.0,   6.0*L*Iz,
+        0.0   ,      0.0,   12.0*Iy,        0.0,  -6.0*L*Iy,        0.0,    0.0,       0.0, -12.0*Iy,        0.0,  -6.0*L*Iy,        0.0,
+        0.0   ,      0.0,       0.0,  G*L*L*J/E,        0.0,        0.0,    0.0,       0.0,      0.0, -G*L*L*J/E,        0.0,        0.0,
+        0.0   ,      0.0, -6.0*L*Iy,        0.0, 4.0*L*L*Iy,        0.0,    0.0,       0.0, 6.0*L*Iy,        0.0, 2.0*L*L*Iy,        0.0,
+        0.0   , 6.0*L*Iz,       0.0,        0.0,        0.0, 4.0*L*L*Iz,    0.0, -6.0*L*Iz,      0.0,        0.0,        0.0, 2.0*L*L*Iz,
+        -L*L*A,      0.0,       0.0,        0.0,        0.0,        0.0,  L*L*A,       0.0,      0.0,        0.0,        0.0,        0.0,
+        0.0   , -12.0*Iz,       0.0,        0.0,        0.0,  -6.0*L*Iz,    0.0,   12.0*Iz,      0.0,        0.0,        0.0,  -6.0*L*Iz,
+        0.0   ,      0.0,  -12.0*Iy,        0.0,   6.0*L*Iy,        0.0,    0.0,       0.0,  12.0*Iy,        0.0,   6.0*L*Iy,        0.0,
+        0.0   ,      0.0,       0.0, -G*L*L*J/E,        0.0,        0.0,    0.0,       0.0,      0.0,  G*L*L*J/E,        0.0,        0.0,
+        0.0   ,      0.0, -6.0*L*Iy,        0.0, 2.0*L*L*Iy,        0.0,    0.0,       0.0, 6.0*L*Iy,        0.0, 4.0*L*L*Iy,        0.0,
+        0.0   , 6.0*L*Iz,       0.0,        0.0,        0.0, 2.0*L*L*Iz,    0.0, -6.0*L*Iz,      0.0,        0.0,        0.0, 4.0*L*L*Iz
     )*(E/L^3)
 end
 
@@ -197,29 +236,26 @@ end
 Computes the mass matrix of the beam element
 - A: Cross section.
 - L: Length of the beam.
-- m: Mass of one of the particles (for computing the density)
-- rad: Radius of one of the particles (for computing the density)
+- ρ: Beam density.
 
 Taken from:
-http://what-when-how.com/the-finite-element-method/fem-for-frames-finite-element-method-part-1/
+Dynamic Analysis of Structures by John T. Katsikadelis: eq (11.9.11)
 """
-function Mass_Matrix(A::Float64, L::Float64, m::Float64, rad::Float64)::SMatrix{12, 12, Float64, 144}
-    a::Float64 = L/2.0
-    Ix::Float64 = 2.0*L*(A/π)*sqrt(A/π)/3.0 # 2*L*r^3/3 -> Second area moment.
-    rx::Float64 = sqrt(Ix/A)
-    ρ::Float64 = 3.0*m/(4.0*π*rad^3)
-    return SMatrix{12,12}(
-        70.0, 0.0, 0.0, 0.0, 0.0, 0.0, 35.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        0.0, 78.0, 0.0, 0.0, 0.0, 22.0*a, 0.0, 27.0, 0.0, 0.0, 0.0, -13.0*a,
-        0.0, 0.0, 78.0, 0.0, -22.0*a, 0.0, 0.0, 0.0, 27.0, 0.0, 13.0*a, 0.0,
-        0.0, 0.0, 0.0, 70.0*rx*rx, 0.0, 0.0, 0.0, 0.0, 0.0, -35.0*rx*rx, 0.0, 0.0,
-        0.0, 0.0, -22.0*a, 0.0, 8.0*a*a, 0.0, 0.0, 0.0, -13.0*a, 0.0, -6.0*a*a, 0.0,
-        0.0, 22*a, 0.0, 0.0, 0.0, 8.0*a*a, 0.0, 13.0*a, 0.0, 0.0, 0.0, -6.0*a*a,
-        35.0, 0.0, 0.0, 0.0, 0.0, 0.0, 70.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        0.0, 27.0, 0.0, 0.0, 0.0, 13.0*a, 0.0, 78.0, 0.0, 0.0, 0.0, -22.0*a,
-        0.0, 0.0, 27.0, 0.0, -13.0*a, 0.0, 0.0, 0.0, 78.0, 0.0, 22.0*a, 0.0,
-        0.0, 0.0, 0.0, -35.0*rx*rx, 0.0, 0.0, 0.0, 0.0, 0.0, 70.0*rx*rx, 0.0, 0.0,
-        0.0, 0.0, 13.0*a, 0.0, -6.0*a*a, 0.0, 0.0, 0.0, 22.0*a, 0.0, 8.0*a*a, 0.0,
-        0.0, -13.0*a, 0.0, 0.0, 0.0, -6.0*a*a, 0.0, -22.0*a, 0.0, 0.0, 0.0, 8.0*a*a
-    )*(ρ*A*a/105.0)
+function Mass_Matrix(A::Float64, L::Float64, ρ::Float64)::SMatrix{12, 12, Float64, 144}
+    Ix::Float64 = 2.0*L*(A/π)*sqrt(A/π)/3.0 # 2*L*r^3/3 -> Second moment of area.
+    r2::Float64 = Ix/A
+    return SMatrix{12, 12, Float64, 144}(
+        140.0,     0.0,     0.0,      0.0,      0.0,      0.0,  70.0,     0.0,     0.0,      0.0,      0.0,      0.0,
+        0.0  ,   156.0,     0.0,      0.0,      0.0,   22.0*L,   0.0,    54.0,     0.0,      0.0,      0.0,  -13.0*L,
+        0.0  ,     0.0,   156.0,      0.0,  -22.0*L,      0.0,   0.0,     0.0,    54.0,      0.0,   13.0*L,      0.0,
+        0.0  ,     0.0,     0.0, 140.0*r2,      0.0,      0.0,   0.0,     0.0,     0.0,  70.0*r2,      0.0,      0.0,
+        0.0  ,     0.0, -22.0*L,      0.0,  4.0*L*L,      0.0,   0.0,     0.0, -13.0*L,      0.0, -3.0*L*L,      0.0,
+        0.0  ,  22.0*L,     0.0,      0.0,      0.0,  4.0*L*L,   0.0,  13.0*L,     0.0,      0.0,      0.0,  -3.0*L*L,
+        70.0 ,     0.0,     0.0,      0.0,      0.0,      0.0, 140.0,     0.0,     0.0,      0.0,      0.0,      0.0,
+        0.0  ,    54.0,     0.0,      0.0,      0.0,   13.0*L,   0.0,   156.0,     0.0,      0.0,      0.0,  -22.0*L,
+        0.0  ,     0.0,    54.0,      0.0,  -13.0*L,      0.0,   0.0,     0.0,   156.0,      0.0,   22.0*L,      0.0,
+        0.0  ,     0.0,     0.0,  70.0*r2,      0.0,      0.0,   0.0,     0.0,     0.0, 140.0*r2,      0.0,      0.0,
+        0.0  ,     0.0,  13.0*L,      0.0, -3.0*L*L,      0.0,   0.0,     0.0,  22.0*L,      0.0,  4.0*L*L,      0.0,
+        0.0  , -13.0*L,     0.0,      0.0,      0.0, -3.0*L*L,   0.0, -22.0*L,     0.0,      0.0,      0.0,  4.0*L*L,
+    )*(ρ*A*L/420.0)
 end

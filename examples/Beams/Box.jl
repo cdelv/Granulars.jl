@@ -1,8 +1,9 @@
 include("../../src/Granulars.jl")
 
+dt = 0.00005
+
 function main(t)
     # Simulation parameters
-    dt = 0.00005
     g = [0.0,-9.0,0.0]
 
     # Box dimensions
@@ -12,7 +13,7 @@ function main(t)
     walls = Create_Box(Lx,Ly,Lz, E=1e9, ν=-0.5)
     
     # Create config
-    conf = Config(t, dt, g=g, walls=walls)
+    conf = Config(t, dt, g=g, walls=walls, en=1.0, v=0.3, thorsten_damping=false, beam_damping=true)
 
     q = angle_to_quat(EulerAngles(0.5,0.5,0.5, :XYZ))
 
@@ -33,9 +34,11 @@ function main(t)
         end
     end
 
+    global dt = 0.7*PWaveTimeStep(particles)
+    println("dt = ", dt)
+
     # Run the simulation
-    Propagate(particles, conf, vis_steps=1600, file="Paraview/data", 
-        save=true, beam_forces=true)
+    Propagate(particles, conf, vis_steps=1600, file="Paraview/data", save=true, beam_forces=true)
 end
 
-@time main(200*1600*0.00005);
+@time main(200*1600*dt);

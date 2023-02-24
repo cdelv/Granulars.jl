@@ -1,11 +1,5 @@
 include("../../src/Granulars.jl")
 
-"""
-###########################################
-# REMEMBER TO UNCOMENT DAMPING IN BEAMS.JL
-###########################################
-"""
-
 function main(t)
     # Simulation parameters
     dt = 0.0001
@@ -21,7 +15,7 @@ function main(t)
     
     # Create config
     walls = walls = Create_Box(50,50,50)
-    conf = Config(t, dt, g=g, walls=walls)
+    conf = Config(t, dt, g=g, walls=walls, beam_damping=true)
     particles = Particle[]
 
     for i in 1:n
@@ -30,7 +24,7 @@ function main(t)
     end
     
     # Run the simulation
-    particles = Propagate(particles, conf, vis_steps=3000, file="Paraview/data", 
+    particles = Propagate(particles, conf, vis_steps=4500, file="Paraview/data", 
         save=true, beam_forces=true, fixed_spheres=[1], static=true)
 
     println("X,Y")
@@ -39,4 +33,4 @@ function main(t)
     end
 end
 
-@time main(200*3000*0.0001);
+@time main(200*4500*0.0001);

@@ -138,6 +138,13 @@ function Particle(;r::Union{Vector{<:Real}, SVector{3}}=[0.0,0.0,0.0],
     Set_w(p,Lab_to_body(p.w,p.q))
 end
 
+"""
+Calculate the density of a particle p.
+"""
+function Get_Density(p::Particle)::Float64
+    p.m/(4.0*π*p.rad^3/3.0)
+end
+
 #=
 METHODS FOR MD
 =# 
@@ -247,4 +254,8 @@ end
 function Set_ν(p::Particle, ν::Float64)::Particle
     G::Float64 = E/(2.0*(1.0+ν))
     return Particle(p.r,p.v,p.a,p.q,p.w,p.τ,p.m,p.I,p.rad,p.E,G,ν)
+end
+function Set_Density(p::Particle, ρ::Float64)::Particle
+    m::Float64 = ρ*4.0*π*p.rad^3/3.0
+    return Particle(p.r,p.v,p.a,p.q,p.w,p.τ,m,p.I,p.rad,p.E,p.G,p.ν)
 end

@@ -49,7 +49,7 @@ function Force_With_Pairs!(particles::StructVector{Particle}, conf::Config,
     
     # Beam Force calculation
     for index in keys(beam_bonds)
-        @inbounds Beam_Force!(particles, beams, index[1], index[2], beam_bonds[index]) #Defined in Beams.jl
+        @inbounds Beam_Force!(particles, beams, index[1], index[2], beam_bonds[index], conf) #Defined in Beams.jl
     end
     
     for pair in neighborlist
@@ -94,8 +94,12 @@ function Force_With_Pairs!(particles::StructVector{Particle}, conf::Config,
 
         # Calculate normal forces.
         Vn::Float64 = dot(Vij,n)
-        #Fn::Float64 = max(0.0, Hertz_Force(s,Eij,Rij) - Thorsten_Normal_Damping_Force(s, mij, Eij, Rij, Vn, conf))
-        Fn::Float64 = max(0.0, Hertz_Force(s,Eij,Rij) - Normal_Damping_Force(s, mij, Eij, Rij, Vn, conf.en))
+        Fn::Float64 = 0.0
+        if conf.thorsten_damping
+            Fn = max(0.0, Hertz_Force(s,Eij,Rij) - Thorsten_Normal_Damping_Force(s, mij, Eij, Rij, Vn, conf))
+        else
+            Fn = max(0.0, Hertz_Force(s,Eij,Rij) - Normal_Damping_Force(s, mij, Eij, Rij, Vn, conf.en))
+        end
 
         # Calculate tangencial forces.
         Vt::SVector{3, Float64} = Vij - dot(Vij,n)*n
@@ -153,8 +157,12 @@ function Force_With_Walls!(particles::StructVector{Particle}, i::Int64, conf::Co
 
         # Calculate normal forces.
         Vn::Float64 = dot(Vij,conf.walls[j].n)
-        #Fn::Float64 = max(0.0, Hertz_Force(s,Eij,Rij) - Thorsten_Normal_Damping_Force(s, mij, Eij, Rij, Vn, conf))
-        Fn::Float64 = max(0.0, Hertz_Force(s,Eij,Rij) - Normal_Damping_Force(s, mij, Eij, Rij, Vn, conf.en))
+        Fn::Float64 = Hertz_Force(s,Eij,Rij)
+        if conf.thorsten_damping
+            Fn = max(0.0, Fn - Thorsten_Normal_Damping_Force(s, mij, Eij, Rij, Vn, conf))
+        else
+            Fn = max(0.0, Fn - Normal_Damping_Force(s, mij, Eij, Rij, Vn, conf.en))
+        end
 
         # Calculate tangencial velocity and forces.
         @inbounds Vt::SVector{3, Float64} = Vij - Vn*conf.walls[j].n
@@ -290,7 +298,12 @@ https://gitlab.com/yade-dev/trunk/-/blob/master/pkg/dem/HertzMindlin.cpp#L363-38
     # Shear constant
     kt::Float64 = 8.0*Gij*sqrt(Rij*s)
     
-    Ft::SVector{3, Float64} = kt*friction_spring[(i,j)] - 2.0*γ(conf.en)*sqrt(mij*kt)*Vt
+    Ft::SVector{3, Float64} = kt*friction_spring[(i,j)]
+    if conf.thorsten_damping
+        Ft -= Thorsten_Normal_Damping_Force(s, mij, Eij, Rij, norm(Vt), conf)*unitary(Vt)
+    else
+        Ft -= 2.0*γ(conf.en)*sqrt(mij*kt)*Vt
+    end
 
     # TO DO: Diferenciate between the 2 friction coeficients!
     if norm(Ft) > Fn*conf.mu 

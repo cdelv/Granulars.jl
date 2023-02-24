@@ -23,9 +23,8 @@ include("Utils.jl")
 """
 Tests Ideas:
     - Revisit friction force and shear tangent force
-    - Thorsten Damping model
     - Fracture Model 
-    - Time step stimate
+    - Change to density?
 """
 
 

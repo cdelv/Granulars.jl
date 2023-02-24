@@ -167,6 +167,21 @@ function Beam_Orientation(n::SVector{3, Float64})::Quaternion{Float64}
     unitary(angleaxis_to_quat(EulerAngleAxis(Angle, u)))
 end
 
+"""
+Estimates the correct time step for the simulation using a percentage of the PWave timestep (usually 50-80% of it)
+https://gitlab.com/yade-dev/trunk/-/blob/master/preprocessing/dem/Shop_01.cpp#L469-486
+
+"""
+function PWaveTimeStep(particles::Vector{<:Particle})::Float64
+    dt::Float64 = Inf
+
+    for i in particles
+        dt = min(dt, i.rad*sqrt(Get_Density(i)/i.E))
+    end
+
+    return dt
+end
+
 
 """
 Creates the walls needed for a box with a corner in (0,0,0).

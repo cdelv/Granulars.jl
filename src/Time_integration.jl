@@ -47,7 +47,7 @@ function Propagate(data::Vector{Particle},
 
     # Creates beams between all ovelaping particles, Defined in Beams.jl
     if beam_forces
-        Create_beams!(particles, list, beam_bonds, beams)
+        Create_beams!(particles, list, beam_bonds, beams, conf)
     end
 
     # Stores the simulation beams (for performance)

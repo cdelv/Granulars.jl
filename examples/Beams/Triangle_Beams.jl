@@ -28,9 +28,9 @@ function main(t)
     conf = Config(t, dt, g=g, walls=walls, en=0.8, mu=0.4)
 
     # Create particles
-    p1 = Particle(r=[10, 10, 10], v=[0.0,0.0,0], w=[0,0,0], rad=2.0)
-    p2 = Particle(r=[13, 10, 10], v=[0.0,0.0,0], w=[0,0,0], rad=2.0)
-    p3 = Particle(r=[11.5, 13, 10], v=[10.0,0.0,0], w=[0,0,0], rad=2.0)
+    p1 = Particle(r=[10, 10, 10], v=[0.0,0.0,0], w=[0,0,0], rad=2.0, E=1e8)
+    p2 = Particle(r=[13, 10, 10], v=[0.0,0.0,0], w=[0,0,0], rad=2.0, E=1e8)
+    p3 = Particle(r=[11.5, 13, 10], v=[10.0,0.0,0], w=[0,0,0], rad=2.0, E=1e8)
 
     # Run the simulation
     Propagate([p1,p2,p3], conf, vis_steps=400, file="Paraview/data", 
