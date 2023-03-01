@@ -1,8 +1,6 @@
 include("../../src/Granulars.jl")
 
-dt = 0.00005
-
-function main(t)
+function main()
     # Simulation parameters
     g = [0.0,-9.0,0.0]
 
@@ -12,9 +10,6 @@ function main(t)
     Lz = 25
     walls = Create_Box(Lx,Ly,Lz, E=1e9, ν=-0.5)
     
-    # Create config
-    conf = Config(t, dt, g=g, walls=walls, en=0.85, v=0.01, thorsten_damping=false, beam_damping=true, ζ=0.06)
-
     # Start particles in organized way
     particles = Particle[]
     nx = 4*2
@@ -31,15 +26,23 @@ function main(t)
             end
         end
     end
-
     push!(particles, Particle(r=[9.0 + 1.5*dx, 1.0 + 5*dy, 9.0 + 1*dz], v=[0, -0.6, 0], E=1e5, ν=0.2))
 
-    global dt = 0.7*PWaveTimeStep(particles)
+    # Estimate a good time step
+    dt = 0.71*PWaveTimeStep(particles)
+    vis_steps = 80
+    frames = 200
     println("dt = ", dt)
 
+    # Create config
+    t = frames*vis_steps*dt
+    conf = Config(t, dt, g=g, walls=walls, en=0.85, v=0.01, thorsten_damping=false, 
+        beam_forces=true, beam_damping=true, ζ=0.06, 
+        fracture=true, c=1500.0, ϕ=0.15)
+
     # Run the simulation
-    Propagate(particles, conf, vis_steps=1600, file="Paraview/data", 
-        save=true, beam_forces=true, fixed_spheres=[length(particles)])
+    Propagate(particles, conf, vis_steps=vis_steps, file="Paraview/data", 
+        save=true, fixed_spheres=[length(particles)])
 end
 
-@time main(200*1600*dt);
+@time main();

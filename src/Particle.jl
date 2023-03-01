@@ -211,7 +211,7 @@ function Move_q(q::Quaternion{Float64}, w::SVector{3, Float64}, dt::Float64)::Qu
     Q_q_dt::Quaternion{Float64} = dquat(q, w)
     a1::Float64 = 1.0 - dt*dt*dot(w,w)/16.0
     a2::Float64 = 1.0 + dt*dt*dot(w,w)/16.0
-    return (a1*q + Q_q_dt*dt)/a2
+    return unitary((a1*q + Q_q_dt*dt)/a2)
 end
 
 #=
@@ -232,7 +232,7 @@ Be carefull, one hass to move the torque, inertia tensor and angular velocity
 to the new reference frame.
 """
 function Set_q(p::Particle, q::Quaternion{Float64})::Particle
-    return Particle(p.r,p.v,p.a,q,p.w,p.τ,p.m,p.I,p.rad,p.E,p.G,p.ν)
+    return Particle(p.r,p.v,p.a,unitary(q),p.w,p.τ,p.m,p.I,p.rad,p.E,p.G,p.ν)
 end
 function Set_w(p::Particle, w::SVector{3, Float64})::Particle
     return Particle(p.r,p.v,p.a,p.q,w,p.τ,p.m,p.I,p.rad,p.E,p.G,p.ν)

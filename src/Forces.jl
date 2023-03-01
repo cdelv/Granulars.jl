@@ -52,6 +52,7 @@ function Force_With_Pairs!(particles::StructVector{Particle}, conf::Config,
         @inbounds Beam_Force!(particles, beam_bonds, beams, index[1], index[2], beam_bonds[index], conf) #Defined in Beams.jl
     end
     
+    # Iterate over each pair
     for pair in neighborlist
         @inbounds i::Int64 = min(pair[1],pair[2]) # For symetric acces to the Mindlin Force matrix
         @inbounds j::Int64 = max(pair[1],pair[2]) # For symetric acces to the Mindlin Force matrix
@@ -66,7 +67,7 @@ function Force_With_Pairs!(particles::StructVector{Particle}, conf::Config,
         # rᵢ - rⱼ means that goes from j to i. j=1 and i=2.
         @inbounds s::Float64 = particles.rad[i] + particles.rad[j] - d
 
-        # Check for contact. Remember that the neighborlist hass a bigger cuttof. 
+        # Check for contact. Remember that the neighborlist has a bigger cuttof. 
         if s <= 0.0
             # Reset spring distance if there is no contact. 
             delete!(friction_spring, (i,j))

@@ -6,7 +6,6 @@ This function does all the work. It's the core of the simulation.
 - file: Where to save the simulation information.
 - save: Whether or not to save simulation data. 
 - rot_seq: Rotation sequence to use for the orientation angle saving convention.
-- beam_forces: Whether or not to create beams between overlaping particles at the begining. 
 - fixed_spheres: List of indices of the spheres that wont move. They can rotate. 
 - static: Make fixed spheres unable to rotate. 
 """
@@ -16,7 +15,6 @@ function Propagate(data::Vector{Particle},
     file::String="Paraview/data", 
     save::Bool=false, 
     rot_seq::Symbol=:XYZ, 
-    beam_forces::Bool=false,
     fixed_spheres::Vector{Int64}=Int64[],
     static::Bool=false)::StructVector{<:AbstractParticle}
     
@@ -46,7 +44,7 @@ function Propagate(data::Vector{Particle},
     beams = Beam[]
 
     # Creates beams between all ovelaping particles, Defined in Beams.jl
-    if beam_forces
+    if conf.beam_forces
         Create_beams!(particles, list, beam_bonds, beams, conf)
     end
 

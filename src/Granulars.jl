@@ -23,9 +23,13 @@ include("Utils.jl")
 """
 Tests Ideas:
     - Revisit friction force and shear tangent force
-    - Fracture Model 
+    - Random value for fracture model 
     - Change to density?
     - Wall movement
+    - w calculation beam damping
+    - re run cantilever beam
+    - compresion Tests
+    - new API for old compresion tests
 """
 
 

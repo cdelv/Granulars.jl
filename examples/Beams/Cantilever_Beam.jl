@@ -1,8 +1,7 @@
 include("../../src/Granulars.jl")
 
-function main(t)
+function main()
     # Simulation parameters
-    dt = 0.0001
     g = [0.0,-10.0,0.0]
     
     # Number of particles
@@ -14,18 +13,26 @@ function main(t)
     dx = 2*rad - 0.6*rad
     
     # Create config
-    walls = walls = Create_Box(50,50,50)
-    conf = Config(t, dt, g=g, walls=walls, beam_damping=true)
     particles = Particle[]
 
     for i in 1:n
-        p = Particle(r=[5+i*dx, 45, 5], v=[0.0,0.0,0.0], w=[0.0,0.0,0.0], rad=rad, m=m, E=800000, ν=0.2)
+        p = Particle(r=[5+i*dx, 40, 5], v=[0.0,0.0,0.0], w=[0.0,0.0,0.0], rad=rad, m=m, E=800000, ν=-0.5)
         push!(particles, p)
     end
+
+    # Estimate a good time step
+    vis_steps = 100000
+    frames = 200
+    dt = 0.00005
+    println("dt = ", dt)
+
+    # Create config
+    t = frames*vis_steps*dt
+    conf = Config(t, dt, g=g, beam_forces=true, beam_damping=true, ζ=0.1)
     
     # Run the simulation
-    particles = Propagate(particles, conf, vis_steps=4500, file="Paraview/data", 
-        save=true, beam_forces=true, fixed_spheres=[1], static=true)
+    particles = Propagate(particles, conf, vis_steps=vis_steps, file="Paraview/data", 
+        save=true, fixed_spheres=[1], static=true)
 
     println("X,Y")
     for i in eachindex(particles)
@@ -33,4 +40,4 @@ function main(t)
     end
 end
 
-@time main(200*4500*0.0001);
+@time main();

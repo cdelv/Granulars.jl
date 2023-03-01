@@ -126,8 +126,13 @@ time, force parameters, and walls.
 - v: Critical velocity for Thorsten Damping Model.
 - thorsten_damping: Whether or not to use Thorsten's Damping Model.
 
+- beam_forces: Whether or not to create beams between overlaping particles at the begining.
 - beam_damping: Whether or not to use damping on beams.
 - ζ: Damping ratio for beams. TO DO: (Support for multiple species)
+
+- fracture: Whether or not to break beams 
+- ϕ: angle of internal friction (in rads) of Mohr-Coulomb fracture criteria. TO DO: (Support for multiple species)
+- c: cohesion force of Mohr-Coulomb fracture criteria. TO DO: (Support for multiple species)
 """
 mutable struct Config
 	tf::Float64
@@ -141,8 +146,13 @@ mutable struct Config
     v::Float64
     thorsten_damping::Bool
 
+    beam_forces::Bool
     beam_damping::Bool
     ζ::Float64
+
+    fracture::Bool
+    ϕ::Float64
+    c::Float64
 end
 
 """
@@ -155,15 +165,22 @@ Convenience constructor for Config
 - en: Coeficient of restitution. TO DO: (Support for multiple species)
 - v: critical velocity for Thorsten Damping Model.
 - thorsten_damping: Whether or not to use Thorsten's Damping Model.
+- beam_forces: Whether or not to create beams between overlaping particles at the begining.
 - beam_damping: Whether or not to use damping on beams.
 - ζ: Damping ratio for beams. TO DO: (Support for multiple species)
+- fracture: Whether or not to break beams 
+- ϕ: angle of internal friction (in rads) of Mohr-Coulomb fracture criteria. 
+- c: cohesion force of Mohr-Coulomb fracture criteria.
 
 Does allocations!!!
 """
 function Config(tf::Real, dt::Real; walls::Vector{Wall}=Wall[], 
     g::Union{Vector{<:Real}, SVector{3}}=[0.0,-9.8,0.0], mu::Real=0.4, en::Real=0.9, v::Real=1.0,
-    beam_damping::Bool=false, thorsten_damping::Bool=false, ζ::Real=0.05)::Config
+    thorsten_damping::Bool=false, beam_forces::Bool=false, beam_damping::Bool=false, ζ::Real=0.05,
+    fracture::Bool=false, ϕ::Real=0.35, c::Real=1.0e4)::Config
 
 	Config(Float64(tf), Float64(dt), SVector{3,Float64}(g), 
-        unique(walls), Float64(mu), Float64(en), Float64(v), thorsten_damping, beam_damping, Float64(ζ))
+        unique(walls), Float64(mu), Float64(en), Float64(v), 
+        thorsten_damping, beam_forces, beam_damping, Float64(ζ), fracture,
+        Float64(ϕ), Float64(c))
 end

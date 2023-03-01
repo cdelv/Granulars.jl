@@ -1,9 +1,8 @@
 include("../../src/Granulars.jl")
 using Distributions
 
-function main(t)
+function main()
     # Simulation parameters
-    dt = 0.0001
     g = [0.0,-9.0,0.0]
     
     # Box dimensions
@@ -36,12 +35,19 @@ function main(t)
             end
         end
     end
+
+    # Estimate a good time step
+    dt = 0.7*PWaveTimeStep(particles)
+    vis_steps = 100
+    frames = 200
+    println("dt = ", dt)
     
     # Create config
-    conf = Config(t, dt, walls=walls, g=g, en=0.8, v=0.3, mu=0.3)
+    t = frames*vis_steps*dt
+    conf = Config(t, dt, walls=walls, g=g, en=0.9, v=0.3, mu=0.2)
     
     # Run the simulation
-    Propagate(particles, conf, vis_steps=200, file="Paraview/data", save=true)
+    Propagate(particles, conf, vis_steps=vis_steps, file="Paraview/data", save=true)
 end
 
-@time main(200*200*0.0001);
+@time main();

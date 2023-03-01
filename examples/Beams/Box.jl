@@ -1,8 +1,6 @@
 include("../../src/Granulars.jl")
 
-dt = 0.00005
-
-function main(t)
+function main()
     # Simulation parameters
     g = [0.0,-9.0,0.0]
 
@@ -12,9 +10,6 @@ function main(t)
     Lz = 25
     walls = Create_Box(Lx,Ly,Lz, E=1e9, ν=-0.5)
     
-    # Create config
-    conf = Config(t, dt, g=g, walls=walls, en=0.85, v=0.01, thorsten_damping=false, beam_damping=true, ζ=0.06)
-
     q = angle_to_quat(EulerAngles(0.5,0.5,0.5, :XYZ))
 
     # Start particles in organized way
@@ -28,17 +23,25 @@ function main(t)
     for i in 1:nx
         for j in 1:ny
             for k in 1:nz 
-                rr = Lab_to_body(SVector(9.0 + i*dx, 4.5 + j*dy, 9.0 + k*dz), q)
-                push!(particles, Particle(r=rr, E=9e3, ν=-0.2))
+                rr = Lab_to_body(SVector(5.0 + i*dx, 5.5 + j*dy, 9.0 + k*dz), q)
+                push!(particles, Particle(r=rr, E=1e4, ν=0.2, v=[1.0,0.0,0.0]))
             end
         end
     end
 
-    global dt = 0.7*PWaveTimeStep(particles)
+    # Estimate a good time step
+    dt = 0.4*PWaveTimeStep(particles)
+    vis_steps = 30
+    frames = 200
     println("dt = ", dt)
 
+    # Create config
+    t = frames*vis_steps*dt
+    conf = Config(t, dt, g=g, walls=walls, mu=0.4, en=0.85, v=0.01, beam_forces=true, 
+        thorsten_damping=true, beam_damping=true, ζ=0.05, fracture=true, c=1300.0)
+
     # Run the simulation
-    Propagate(particles, conf, vis_steps=1600, file="Paraview/data", save=true, beam_forces=true)
+    Propagate(particles, conf, vis_steps=vis_steps, file="Paraview/data", save=true)
 end
 
-@time main(200*1600*dt);
+@time main();

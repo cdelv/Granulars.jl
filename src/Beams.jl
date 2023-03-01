@@ -33,13 +33,14 @@ Convenience constructor for Beam.
 - p_j: Particle on one of the ends of the beam.
 - conf: Simulation configuration, its a Conf struct, implemented in Configuration.jl. 
 
-TO DO: THINK ON A BETTER CRITERIA FOR BEAM PROPERTIES
-
 Formula for the corss section rad:
 https://mathworld.wolfram.com/Sphere-SphereIntersection.html
 
 - quaternion reference frame difference:
 https://math.stackexchange.com/questions/1884215/how-to-calculate-relative-pitch-roll-and-yaw-given-absolutes
+
+DAMPING FORCE:
+- Dynamic Analysis of Structures by John T. Katsikadelis
 
 NORMAL MODES:
 - Vibrations of a Free-Free Beam by Mauro Caresta:
@@ -105,7 +106,7 @@ function Beam(p_i::Particle, p_j::Particle, conf::Config)::Beam
     C::SMatrix{12, 12, Float64, 144} = a0*M + a1*K
 
     # Create Beam
-    Beam(Eij, Gij, J, II, A, L, unitary(Δq0i), unitary(Δq0j), K, C)
+    return Beam(Eij, Gij, J, II, A, L, unitary(Δq0i), unitary(Δq0j), K, C)
 end
 
 """
@@ -130,7 +131,7 @@ function Create_beams!(particles::StructVector{Particle},
         # Interpenetration distance.
         @inbounds s::Float64 = particles.rad[i] + particles.rad[j] - d
 
-        # Check for contact. Remember that the neighborlist hass a bigger cuttof. 
+        # Check for contact. Remember that the neighborlist has a bigger cuttof. 
         if s > 0.0
             beam_bonds[(i,j)] = k
             push!(beams, Beam(particles[i], particles[j], conf))
@@ -152,6 +153,9 @@ Calculates the beam forces
 - conf: 
 
 TO DO: CHEK IF UNITARY(Q) IS NECESARY
+
+DAMPING FORCE:
+- Dynamic Analysis of Structures by John T. Katsikadelis
 
 quaternion reference frame difference
 https://math.stackexchange.com/questions/1884215/how-to-calculate-relative-pitch-roll-and-yaw-given-absolutes
@@ -185,13 +189,13 @@ function Beam_Force!(particles::StructVector{Particle},
     # Compute relative velocities and damping force.
     if conf.beam_damping
         @inbounds v::SVector{3, Float64} = Lab_to_body(particles.v[i], qbi) - Lab_to_body(particles.v[j], qbi)
-        @inbounds w::SVector{3, Float64} = Lab_to_body(Body_to_lab(particles.w[i],particles.q[i]), qbi) - Lab_to_body(Body_to_lab(particles.w[j],particles.q[j]), qbi)
+        @inbounds w::SVector{3, Float64} = Lab_to_body(Body_to_lab(particles.w[i],particles.q[i]), qbi) - Lab_to_body(Body_to_lab(particles.w[j],particles.q[j]), qbj)
         @inbounds V::SVector{12,Float64} = SVector(v[1], v[2], v[3], w[1], w[2], w[3], -v[1], -v[2], -v[3], -w[1], -w[2], -w[3])
         @inbounds F -= beams.C[k]*V
     end
 
     # Check for fracture
-    if true
+    if conf.fracture
         if Fracture!(particles, beam_bonds, beams, i, j, k, conf, F)
             return nothing
         end
@@ -207,16 +211,19 @@ function Beam_Force!(particles::StructVector{Particle},
 end
 
 """
+Calculates the beam principal streses and chechks if the beam shoul break under the Mohr-Culomb
+failure criteria. 
 
+Principal stress: 
+- https://knowledge-base.matrix-software.com/help/matrix-tools/section-editor/stresses/principal-stresses
+
+Mohr-Culomb:
+- https://en.wikipedia.org/wiki/Mohr%E2%80%93Coulomb_theory
 """
 function Fracture!(particles::StructVector{Particle}, 
     beam_bonds::Dict{Tuple{Int64, Int64}, Int64},beams::StructVector{Beam}, 
-    i::Int64, j::Int64, k::Int64, conf::Config, F)::Bool
+    i::Int64, j::Int64, k::Int64, conf::Config, F::SVector{12, Float64})::Bool
     
-    # Materials properties -> move to config or beams
-    ϕ::Float64 = 0.2
-    c::Float64 = 1550.0
-
     # Section modulus
     @inbounds w::Float64 = beams.I[k]/sqrt(beams.A[k]/π) # I/r = Iy/y_max = Iz/z_max
 
@@ -231,12 +238,12 @@ function Fracture!(particles::StructVector{Particle},
     σ3::Float64 = 0.5*σx - σ2
 
     # Mohor-Culomb streses
-    σ = 0.5*(σ1+σ3)+0.5*(σ1-σ3)*sin(ϕ)
-    τ = 0.5*(σ1-σ3)*cos(ϕ)
+    σ::Float64 = 0.5*(σ1 + σ3) + 0.5*(σ1 - σ3)*sin(conf.ϕ)
+    τ::Float64 = 0.5*(σ1 - σ3)*cos(conf.ϕ)
 
     # Check for fracture, adding makes it stronger, Substracting weeker. 
     # the - sing in σ*tan(ϕ) means that compression is negative. Tensile is positive. 
-    if abs(τ) >= c - σ*tan(ϕ) + 10*rand()
+    if abs(τ) >= conf.c - σ*tan(conf.ϕ) + 50.0*rand() # Make this better, set seed and proper distribution.
         delete!(beam_bonds, (i,j))
 
         return true
