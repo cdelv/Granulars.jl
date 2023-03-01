@@ -67,15 +67,13 @@ function Beam(p_i::Particle, p_j::Particle, conf::Config)::Beam
     Δq0j::Quaternion{Float64} = Beam_Orientation(unitary(p_j.r - p_i.r)) ∘ inv(p_j.q) # Defined in Utils.jl
 
     # Average Young and shear modulus
-    # TO DO: THINK ON A BETTER CRITERIA
-    Eij::Float64 = 0.5*(p_i.E + p_j.E)
-    Gij::Float64 = 0.5*(p_i.G + p_j.G)
+    Eij::Float64 = 2.0*p_i.E*p_j.E/(p_i.E + p_j.E)
+    Gij::Float64 = 2.0*p_i.G*p_j.G/(p_i.G + p_j.G)
 
     # Beam density
-    # TO DO: THINK ON A BETTER CRITERIA
-    ρ::Float64 = 0.5*(Get_Density(p_i) + Get_Density(p_j))
+    ρ::Float64 = 2.0*Get_Density(p_i)*Get_Density(p_j)/(Get_Density(p_i) + Get_Density(p_j))
 
-    # Compute Mass ans Stifness Matrix
+    # Compute Mass and Stifness Matrix
     K::SMatrix{12, 12, Float64, 144} = Stifness_Matrix(A, L, Eij, Gij, II, J)
     M::SMatrix{12, 12, Float64, 144} = Mass_Matrix(A, L, ρ)
 
@@ -159,7 +157,8 @@ quaternion reference frame difference
 https://math.stackexchange.com/questions/1884215/how-to-calculate-relative-pitch-roll-and-yaw-given-absolutes
 """
 function Beam_Force!(particles::StructVector{Particle}, 
-    beams::StructVector{Beam}, i::Int64, j::Int64, k::Int64, conf::Config)
+    beam_bonds::Dict{Tuple{Int64, Int64}, Int64},beams::StructVector{Beam}, 
+    i::Int64, j::Int64, k::Int64, conf::Config)
     
     # Beam Orientation in the i particle
     @inbounds qbi::Quaternion{Float64} = unitary(beams.Δq0i[k] ∘ particles.q[i])
@@ -191,6 +190,13 @@ function Beam_Force!(particles::StructVector{Particle},
         @inbounds F -= beams.C[k]*V
     end
 
+    # Check for fracture
+    if true
+        if Fracture!(particles, beam_bonds, beams, i, j, k, conf, F)
+            return nothing
+        end
+    end
+
     # Add forces and torques to the particles.
     @inbounds particles.a[i] += Body_to_lab(SVector(F[1], F[2], F[3]), qbi)/particles.m[i] 
     @inbounds particles.τ[i] += Lab_to_body(Body_to_lab(SVector(F[4], F[5], F[6]), qbi), particles.q[i])
@@ -198,6 +204,45 @@ function Beam_Force!(particles::StructVector{Particle},
     @inbounds particles.τ[j] += Lab_to_body(Body_to_lab(SVector(F[10],F[11],F[12]), qbi), particles.q[j])
     
     return nothing
+end
+
+"""
+
+"""
+function Fracture!(particles::StructVector{Particle}, 
+    beam_bonds::Dict{Tuple{Int64, Int64}, Int64},beams::StructVector{Beam}, 
+    i::Int64, j::Int64, k::Int64, conf::Config, F)::Bool
+    
+    # Materials properties -> move to config or beams
+    ϕ::Float64 = 0.2
+    c::Float64 = 1550.0
+
+    # Section modulus
+    @inbounds w::Float64 = beams.I[k]/sqrt(beams.A[k]/π) # I/r = Iy/y_max = Iz/z_max
+
+    # Streses in the beam
+    @inbounds σx::Float64 = F[1]/beams.A[k] + F[5]/w + F[6]/w
+    @inbounds τy::Float64 = 4.0*F[2]/(3.0*beams.A[k])
+    @inbounds τz::Float64 = 4.0*F[3]/(3.0*beams.A[k]) + F[4]/w
+
+    # Principal Streses
+    σ2::Float64 = sqrt(0.25*σx*σx + τy*τy + τz*τz)
+    σ1::Float64 = 0.5*σx + σ2
+    σ3::Float64 = 0.5*σx - σ2
+
+    # Mohor-Culomb streses
+    σ = 0.5*(σ1+σ3)+0.5*(σ1-σ3)*sin(ϕ)
+    τ = 0.5*(σ1-σ3)*cos(ϕ)
+
+    # Check for fracture, adding makes it stronger, Substracting weeker. 
+    # the - sing in σ*tan(ϕ) means that compression is negative. Tensile is positive. 
+    if abs(τ) >= c - σ*tan(ϕ) + 10*rand()
+        delete!(beam_bonds, (i,j))
+
+        return true
+    end
+
+    return false
 end
 
 

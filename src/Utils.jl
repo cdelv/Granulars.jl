@@ -171,6 +171,7 @@ end
 Estimates the correct time step for the simulation using a percentage of the PWave timestep (usually 50-80% of it)
 https://gitlab.com/yade-dev/trunk/-/blob/master/preprocessing/dem/Shop_01.cpp#L469-486
 
+- particles: Array of particles.
 """
 function PWaveTimeStep(particles::Vector{<:Particle})::Float64
     dt::Float64 = Inf

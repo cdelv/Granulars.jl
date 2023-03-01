@@ -16,7 +16,7 @@ function Calculate_Forces!(particles::StructVector{Particle},
     beams::StructVector{Beam},
     t::Float64)
     
-    # Reset force acting upon the walls
+    # Reset force acting on the walls
     for i in eachindex(conf.walls)
         conf.walls[i] = Set_F(conf.walls[i], zeros(SVector{3}))
     end
@@ -49,7 +49,7 @@ function Force_With_Pairs!(particles::StructVector{Particle}, conf::Config,
     
     # Beam Force calculation
     for index in keys(beam_bonds)
-        @inbounds Beam_Force!(particles, beams, index[1], index[2], beam_bonds[index], conf) #Defined in Beams.jl
+        @inbounds Beam_Force!(particles, beam_bonds, beams, index[1], index[2], beam_bonds[index], conf) #Defined in Beams.jl
     end
     
     for pair in neighborlist
@@ -147,7 +147,7 @@ function Force_With_Walls!(particles::StructVector{Particle}, i::Int64, conf::Co
         # Relative velocity. Carefull with angular velocity! The minus sing is due to the direction of the normal.
         @inbounds wi::SVector{3, Float64} = -cross(Body_to_lab(particles.w[i],particles.q[i]), particles.rad[i]*conf.walls[j].n)
         @inbounds wj::SVector{3, Float64} = zeros(SVector{3})
-        @inbounds Vij::SVector{3, Float64} = particles.v[i] + wi
+        @inbounds Vij::SVector{3, Float64} = particles.v[i] - conf.walls[j].v + wi
 
         # Reduced mass, radius, young modulus, and shear modulus.
         @inbounds mij::Float64 = particles.m[i] # Reduced mass is m (wall with infinite mass).
@@ -173,7 +173,7 @@ function Force_With_Walls!(particles::StructVector{Particle}, i::Int64, conf::Co
         @inbounds T += cross(-particles.rad[i]*conf.walls[j].n, Fn*conf.walls[j].n + Ft)
 
         # Add force acting on the wall.
-        conf.walls[j] = Set_F(conf.walls[j], conf.walls[j].F - Fn*conf.walls[j].n - Ft)
+        conf.walls[j] = Set_F(conf.walls[j], conf.walls[j].F - Fn*conf.walls[j].n - Ft + dot(conf.g, conf.walls[j].n)*conf.walls[j].n)
     end
 
     # Update force acting on particle.
@@ -307,7 +307,7 @@ https://gitlab.com/yade-dev/trunk/-/blob/master/pkg/dem/HertzMindlin.cpp#L363-38
 
     # TO DO: Diferenciate between the 2 friction coeficients!
     if norm(Ft) > Fn*conf.mu 
-        Ft = -Fn*conf.mu*unitary(Vt)
+        Ft = -Fn*conf.mu*unitary(sparcify.(Vt))
     end
 
     Ft

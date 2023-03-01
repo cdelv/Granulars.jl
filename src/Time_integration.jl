@@ -31,7 +31,7 @@ function Propagate(data::Vector{Particle},
     Cutoff::Float64 = 3.0*maximum(particles.rad)
     
     # Create Neighbor and Cell List.
-    system = InPlaceNeighborList(x=particles.r, cutoff=Cutoff, parallel=false) # Explore Parallel Options
+    system = InPlaceNeighborList(x=particles.r, cutoff=Cutoff, parallel=true) # Explore Parallel Options
     list = neighborlist!(system) # Type Warning!
 
     # Create dictionary for spring force calculation.
@@ -66,10 +66,12 @@ function Propagate(data::Vector{Particle},
     for i in 1:trunc(Int, conf.tf/conf.dt) # Number of Steps.
         t+=conf.dt
         
+        # Defined in utils.jl -> for the user to override.
         Actions_Before_Time_Step!(particles,conf,list,friction_spring_particles,friction_spring_walls,beam_bonds,beams,fixed_spheres,static,t)
 
         time_step!(particles,conf,list,friction_spring_particles,friction_spring_walls,beam_bonds,beams,fixed_spheres,static,t)
 
+        # Defined in utils.jl -> for the user to override.
         Actions_After_Time_Step!(particles,conf,list,friction_spring_particles,friction_spring_walls,beam_bonds,beams,fixed_spheres,static,t)
 
         # Update Cell List.
@@ -83,7 +85,7 @@ function Propagate(data::Vector{Particle},
         end
     end
 
-    # Return The Final State Of The Simulation. 
+    # Return The Final State of The Simulation. 
     return particles
 end
 
@@ -131,6 +133,11 @@ function time_step_start!(particles::StructVector{<:AbstractParticle},
         @inbounds particles.v[i] = Move_v(particles.v[i],particles.a[i],conf.dt,-0.5)
     end
 
+    # Initialize Velocity of walls.
+    for i in eachindex(conf.walls)
+        @inbounds conf.walls[i] = Move_v(conf.walls[i], conf.dt,-0.5)
+    end
+
 end
 
 
@@ -166,9 +173,9 @@ function time_step!(particles::StructVector{<:AbstractParticle},
 
     # Remove forces and torques acting over static or fixed spheres
     for i in fixed_spheres
-        particles.a[i] *= 0.0
+        particles.a[i] = zeros(SVector{3})
         if static 
-            particles.τ[i] *= 0.0
+            particles.τ[i] = zeros(SVector{3})
         end
     end
 
@@ -179,6 +186,11 @@ function time_step!(particles::StructVector{<:AbstractParticle},
         
         @inbounds particles.r[i] = Move_r(particles.r[i],particles.v[i],conf.dt)
         @inbounds particles.q[i] = Move_q(particles.q[i],particles.w[i],conf.dt)
+    end
+
+    for i in eachindex(conf.walls)
+        @inbounds conf.walls[i] = Move_v(conf.walls[i], conf.dt)
+        @inbounds conf.walls[i] = Move_r(conf.walls[i], conf.dt)
     end
 
     return nothing

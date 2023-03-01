@@ -135,7 +135,7 @@ function Particle(;r::Union{Vector{<:Real}, SVector{3}}=[0.0,0.0,0.0],
         Float64(E),
         G, Float64(ν))
     p = Set_Inertia(p) # Adds the innertia tensor and particle orientation. Defined in Utils.jl
-    Set_w(p,Lab_to_body(p.w,p.q))
+    Set_w(p,Lab_to_body(p.w,p.q)) # Move angular velocity to body frame
 end
 
 """
@@ -157,7 +157,7 @@ These method allows changing the integration algorithm quickly.
 - dt: Time step.
 - cte: Integration algorithm constant. 
 """
-function Move_r(r::SVector{3, Float64}, v::SVector{3, Float64}, dt::Float64, cte=1.0::Float64)::SVector{3, Float64}
+function Move_r(r::SVector{3, Float64}, v::SVector{3, Float64}, dt::Float64, cte::Float64=1.0)::SVector{3, Float64}
     return r + v*dt*cte
 end
 
@@ -168,7 +168,7 @@ Update velocity according to MD algortihm.
 - dt: Time step
 - cte: Integration algorithm constant. 
 """
-function Move_v(v::SVector{3, Float64}, a::SVector{3, Float64}, dt::Float64, cte=1.0::Float64)::SVector{3, Float64}
+function Move_v(v::SVector{3, Float64}, a::SVector{3, Float64}, dt::Float64, cte::Float64=1.0)::SVector{3, Float64}
     return v + a*dt*cte
 end
 
@@ -226,6 +226,11 @@ end
 function Set_a(p::Particle, a::SVector{3, Float64})::Particle
     return Particle(p.r,p.v,a,p.q,p.w,p.τ,p.m,p.I,p.rad,p.E,p.G,p.ν)
 end
+
+"""
+Be carefull, one hass to move the torque, inertia tensor and angular velocity
+to the new reference frame.
+"""
 function Set_q(p::Particle, q::Quaternion{Float64})::Particle
     return Particle(p.r,p.v,p.a,q,p.w,p.τ,p.m,p.I,p.rad,p.E,p.G,p.ν)
 end

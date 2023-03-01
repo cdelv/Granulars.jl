@@ -25,6 +25,7 @@ Tests Ideas:
     - Revisit friction force and shear tangent force
     - Fracture Model 
     - Change to density?
+    - Wall movement
 """
 
 
